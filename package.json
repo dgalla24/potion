@@ -1,7 +1,24 @@
 {
   "name": "goal-ai",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "An intelligent goal planning application that uses AI to break down your goals into actionable, calendar-based tasks with adaptive planning and progress tracking.",
+  "private": false,
+  "keywords": [
+    "ai",
+    "goal-planning",
+    "productivity",
+    "calendar",
+    "nextjs",
+    "typescript",
+    "tailwindcss"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/goal-ai.git"
+  },
+  "homepage": "https://github.com/yourusername/goal-ai#readme",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",

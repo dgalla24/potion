@@ -10,20 +10,53 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing LiteLLM API key' }, { status: 500 });
   }
 
+  // Get today's date
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
   // Add system prompt for goal planning
   const systemPrompt = {
     role: 'system',
-    content: `You are a goal planning assistant. When users share their goals, respond with a structured JSON format containing:
+    content: `You are a goal planning assistant that creates detailed, calendar-based action plans. When users share their goals, respond with a structured JSON format containing:
 
 {
   "longTermGoals": ["goal1", "goal2"],
-  "shortTermGoals": ["goal1", "goal2"],
+  "shortTermGoals": ["goal1", "goal2"], 
   "dailyTasks": ["task1", "task2"],
   "timeline": "estimated timeline",
-  "explanation": "brief explanation of the plan"
+  "explanation": "brief explanation of the plan",
+  "startDate": "YYYY-MM-DD",
+  "endDate": "YYYY-MM-DD", 
+  "totalDuration": number_of_days,
+  "calendarTasks": [
+    {
+      "id": "unique_id",
+      "text": "task description",
+      "completed": false,
+      "date": "YYYY-MM-DD",
+      "type": "daily|weekly|milestone"
+    }
+  ]
 }
 
-Break down vague goals into specific, actionable steps. Focus on creating realistic, achievable milestones.`
+IMPORTANT: Today's date is ${todayString}. Use this as your startDate and calculate all calendar task dates from today.
+
+For calendar tasks:
+- Create specific daily tasks with realistic targets for the first 2 weeks
+- Add weekly milestones to track progress
+- Include major milestones at key points (1/3, 1/2, 2/3, completion)
+- Use ${todayString} as startDate
+- Calculate endDate based on the goal timeline
+- Make tasks actionable and measurable
+- Generate valid JSON without comments
+- All dates should be ${todayString} or later
+
+Example for reading a 500-page book in 3 months:
+- Daily: "Read 5-6 pages" (for first 2 weeks)
+- Weekly: "Complete 40 pages" 
+- Milestone: "Reach 160 pages (1/3 complete)"
+
+Generate 10-15 calendar tasks maximum, focusing on the first few weeks and key milestones. Start from ${todayString}.`
   };
 
   const messagesWithSystem = [systemPrompt, ...messages];
