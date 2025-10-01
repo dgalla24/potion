@@ -38,7 +38,6 @@ export interface CalendarFilters {
   showAssignments: boolean;
   showTasks: boolean;
   filteredClasses: Set<string>; // Class IDs to show (empty = show all)
-  highlightedItems: Set<string>; // Item IDs to highlight (empty = no highlighting)
 }
 
 export interface CalendarEvent {

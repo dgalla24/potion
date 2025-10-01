@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Filter, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, Plus, X } from 'lucide-react';
 import { usePotion } from '@/hooks/usePotion';
 import { formatShortDate, getCalendarDays, isSameDay, isToday } from '@/lib/utils';
 import { Assignment, Task } from '@/types';
 import ItemModal from './ItemModal';
 import ContextMenu from './ContextMenu';
-import DragSelection from './DragSelection';
 
 interface CalendarDayProps {
   date: Date;
@@ -20,10 +19,9 @@ interface CalendarDayProps {
   onEditItem: (item: Assignment | Task) => void;
   onDeleteItem: (item: Assignment | Task) => void;
   getClassById: (id: string) => import('@/types').Class | undefined;
-  onHighlightItem: (item: Assignment | Task) => void;
-  highlightedItems: Set<string>;
-  selectedItems: Set<string>;
   onDropItem: (date: Date, itemData: any) => void;
+  highlightedAssignmentId: string | null;
+  onHighlightAssignment: (assignmentId: string | null) => void;
 }
 
 function CalendarDay({
@@ -37,10 +35,9 @@ function CalendarDay({
   onEditItem,
   onDeleteItem,
   getClassById,
-  onHighlightItem,
-  highlightedItems,
-  selectedItems,
-  onDropItem
+  onDropItem,
+  highlightedAssignmentId,
+  onHighlightAssignment
 }: CalendarDayProps) {
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -65,13 +62,29 @@ function CalendarDay({
   };
 
   const handleItemClick = (e: React.MouseEvent, item: Assignment | Task) => {
+    // Handle shift+click for highlighting assignment and related tasks
     if (e.shiftKey) {
-      e.preventDefault();
       e.stopPropagation();
-      onHighlightItem(item);
-    } else {
-      onEditItem(item);
+      if ('dueDate' in item) {
+        // Clicked on assignment - toggle highlight
+        if (highlightedAssignmentId === item.id) {
+          onHighlightAssignment(null);
+        } else {
+          onHighlightAssignment(item.id);
+        }
+      } else {
+        // Clicked on task - highlight its parent assignment if it has one
+        if (item.assignmentId) {
+          if (highlightedAssignmentId === item.assignmentId) {
+            onHighlightAssignment(null);
+          } else {
+            onHighlightAssignment(item.assignmentId);
+          }
+        }
+      }
+      return;
     }
+    onEditItem(item);
   };
 
   const getItemStatusColors = (status: string) => {
@@ -95,24 +108,6 @@ function CalendarDay({
       : 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300';
   };
 
-  const getHighlightStyles = (itemId: string) => {
-    if (highlightedItems.size === 0) {
-      return ''; // No highlighting active
-    }
-
-    if (highlightedItems.has(itemId)) {
-      return 'ring-2 ring-blue-500 shadow-lg'; // Highlighted
-    } else {
-      return 'opacity-30'; // Dimmed
-    }
-  };
-
-  const getSelectionStyles = (itemId: string) => {
-    if (selectedItems.has(itemId)) {
-      return 'ring-2 ring-purple-500 bg-purple-50 dark:bg-purple-900/20'; // Selected
-    }
-    return '';
-  };
 
   return (
     <>
@@ -165,7 +160,9 @@ function CalendarDay({
           {showAssignments && assignments.map(assignment => {
             const assignmentClass = assignment.classId ? getClassById(assignment.classId) : null;
             const assignmentTasks = tasks.filter(task => task.assignmentId === assignment.id);
-            const isPlanned = assignmentTasks.length > 0; // Has tasks = planned
+            const isPlanned = assignment.planned; // Use the planned field from the assignment
+            const isHighlighted = highlightedAssignmentId === assignment.id;
+            const isDimmed = highlightedAssignmentId !== null && !isHighlighted;
             return (
               <div
                 key={assignment.id}
@@ -179,7 +176,11 @@ function CalendarDay({
                   }));
                   e.dataTransfer.effectAllowed = 'move';
                 }}
-                className={`p-3 rounded-lg border cursor-move transition-all duration-200 hover:shadow-md transform hover:scale-[1.02] ${getItemStatusColors(assignment.status)} ${getHighlightStyles(assignment.id)} ${getSelectionStyles(assignment.id)}`}
+                className={`p-3 rounded-lg border cursor-move transition-all duration-200 hover:shadow-md transform hover:scale-[1.02] select-none ${
+                  isHighlighted
+                    ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-gray-900 shadow-lg scale-[1.02]'
+                    : ''
+                } ${isDimmed ? 'opacity-30' : ''} ${getItemStatusColors(assignment.status)}`}
                 onClick={(e) => handleItemClick(e, assignment)}
                 onContextMenu={(e) => handleRightClick(e, assignment)}
               >
@@ -213,6 +214,8 @@ function CalendarDay({
 
           {showTasks && tasks.map(task => {
             const taskClass = task.classId ? getClassById(task.classId) : null;
+            const isHighlighted = task.assignmentId && highlightedAssignmentId === task.assignmentId;
+            const isDimmed = highlightedAssignmentId !== null && !isHighlighted;
             return (
               <div
                 key={task.id}
@@ -226,7 +229,11 @@ function CalendarDay({
                   }));
                   e.dataTransfer.effectAllowed = 'move';
                 }}
-                className={`p-3 rounded-lg border cursor-move transition-all duration-200 hover:shadow-md transform hover:scale-[1.02] ${getItemStatusColors(task.status)} ${getHighlightStyles(task.id)} ${getSelectionStyles(task.id)}`}
+                className={`p-3 rounded-lg border cursor-move transition-all duration-200 hover:shadow-md transform hover:scale-[1.02] select-none ${
+                  isHighlighted
+                    ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900 shadow-lg scale-[1.02]'
+                    : ''
+                } ${isDimmed ? 'opacity-30' : ''} ${getItemStatusColors(task.status)}`}
                 onClick={(e) => handleItemClick(e, task)}
                 onContextMenu={(e) => handleRightClick(e, task)}
               >
@@ -278,22 +285,14 @@ export default function Calendar() {
     updateAssignment,
     updateTask,
     getClassById,
-    toggleClassFilter,
-    highlightItem,
-    clearHighlight,
-    startDragSelection,
-    updateDragSelection,
-    endDragSelection,
-    isDragging,
-    selectedItems,
-    clearSelection,
-    deleteSelectedItems
+    toggleClassFilter
   } = usePotion();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showFilters, setShowFilters] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [editingItem, setEditingItem] = useState<Assignment | Task | null>(null);
+  const [highlightedAssignmentId, setHighlightedAssignmentId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const days = getCalendarDays(currentDate);
@@ -319,30 +318,6 @@ export default function Calendar() {
     }
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // Only start drag selection on left click, not on items or buttons
-    if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-      const target = e.target as HTMLElement;
-      if (!target.closest('[data-item-id]') && !target.closest('button')) {
-        e.preventDefault();
-        startDragSelection(e.clientX, e.clientY);
-      }
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging) {
-      e.preventDefault();
-      updateDragSelection(e.clientX, e.clientY);
-    }
-  };
-
-  const handleMouseUp = (e: React.MouseEvent) => {
-    if (isDragging) {
-      e.preventDefault();
-      endDragSelection();
-    }
-  };
 
   const handleAddItem = (date: Date) => {
     setSelectedDate(date);
@@ -438,53 +413,6 @@ export default function Calendar() {
           </div>
         </div>
 
-        {/* Active Highlighting */}
-        {filters.highlightedItems.size > 0 && (
-          <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
-                Highlighting {filters.highlightedItems.size} related items
-              </span>
-              <button
-                onClick={clearHighlight}
-                className="text-sm text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-200 font-medium"
-              >
-                Clear highlight
-              </button>
-            </div>
-            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
-              💡 Shift+click on any item to change the highlight
-            </p>
-          </div>
-        )}
-
-        {/* Selected Items */}
-        {selectedItems.size > 0 && (
-          <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                {selectedItems.size} item{selectedItems.size === 1 ? '' : 's'} selected
-              </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={clearSelection}
-                  className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 font-medium"
-                >
-                  Clear selection
-                </button>
-                <button
-                  onClick={deleteSelectedItems}
-                  className="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 font-medium"
-                >
-                  Delete selected
-                </button>
-              </div>
-            </div>
-            <p className="text-xs text-purple-600 dark:text-purple-400 mt-2">
-              💡 Click and drag to select multiple items
-            </p>
-          </div>
-        )}
 
         {/* Active Class Filters */}
         {filters.filteredClasses.size > 0 && (
@@ -542,9 +470,6 @@ export default function Calendar() {
           <div
             ref={containerRef}
             className="grid grid-cols-7 divide-x divide-gray-100 dark:divide-gray-700 relative"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
           >
             {days.map(date => (
               <CalendarDay
@@ -559,10 +484,9 @@ export default function Calendar() {
                 onEditItem={handleEditItem}
                 onDeleteItem={handleDeleteItem}
                 getClassById={getClassById}
-                onHighlightItem={highlightItem}
-                highlightedItems={filters.highlightedItems}
-                selectedItems={selectedItems}
                 onDropItem={handleDropItem}
+                highlightedAssignmentId={highlightedAssignmentId}
+                onHighlightAssignment={setHighlightedAssignmentId}
               />
             ))}
           </div>
@@ -572,19 +496,11 @@ export default function Calendar() {
           <ItemModal
             item={editingItem || undefined}
             defaultDate={selectedDate || undefined}
-            defaultAssignmentId={(() => {
-              // If creating a new task and there's a highlighted assignment, auto-link it
-              if (!editingItem && selectedDate) {
-                const highlightedAssignments = assignments.filter(a => filters.highlightedItems.has(a.id));
-                return highlightedAssignments.length === 1 ? highlightedAssignments[0].id : undefined;
-              }
-              return undefined;
-            })()}
+            defaultAssignmentId={highlightedAssignmentId || undefined}
             onClose={handleCloseModal}
+            isNew={!editingItem}
           />
         )}
-
-        <DragSelection containerRef={containerRef} />
       </div>
     </div>
   );

@@ -25,19 +25,6 @@ interface PotionContextType {
   getAssignmentsByDate: (date: Date) => Assignment[];
   getClassById: (id: string) => Class | undefined;
   toggleClassFilter: (classId: string) => void;
-  highlightItem: (item: Assignment | Task) => void;
-  clearHighlight: () => void;
-  selectedItems: Set<string>;
-  toggleSelectItem: (itemId: string) => void;
-  selectMultipleItems: (itemIds: string[]) => void;
-  clearSelection: () => void;
-  deleteSelectedItems: () => void;
-  isDragging: boolean;
-  dragStartPos: { x: number; y: number } | null;
-  dragCurrentPos: { x: number; y: number } | null;
-  startDragSelection: (x: number, y: number) => void;
-  updateDragSelection: (x: number, y: number) => void;
-  endDragSelection: () => void;
 }
 
 const PotionContext = createContext<PotionContextType | undefined>(undefined);
@@ -51,12 +38,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     showAssignments: true,
     showTasks: true,
     filteredClasses: new Set<string>(),
-    highlightedItems: new Set<string>(),
   });
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
-  const [dragCurrentPos, setDragCurrentPos] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     setAssignments(storage.assignments.getAll());
@@ -89,13 +71,16 @@ export function PotionProvider({ children }: { children: ReactNode }) {
 
   const addTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newTask = storage.tasks.add(taskData);
-    const updatedTasks = [...tasks, newTask];
-    setTasks(updatedTasks);
+    setTasks(prev => {
+      const updatedTasks = [...prev, newTask];
 
-    // Sync assignment status if task is linked to an assignment
-    if (newTask.assignmentId) {
-      syncAssignmentStatus(newTask.assignmentId!, updatedTasks);
-    }
+      // Sync assignment status if task is linked to an assignment
+      if (newTask.assignmentId) {
+        syncAssignmentStatus(newTask.assignmentId!, updatedTasks);
+      }
+
+      return updatedTasks;
+    });
 
     return newTask;
   };
@@ -239,15 +224,20 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
 
     const completedTasks = assignmentTasks.filter(task => task.status === 'completed');
-    const inProgressTasks = assignmentTasks.filter(task => task.status === 'in_progress');
+    const notStartedTasks = assignmentTasks.filter(task => task.status === 'not_started');
 
+    // All tasks are completed → Not Submitted
     if (completedTasks.length === assignmentTasks.length) {
-      return 'completed'; // All tasks completed → Completed
-    } else if (inProgressTasks.length > 0 || completedTasks.length > 0) {
-      return 'in_progress'; // At least one task completed or in progress → In Progress
-    } else {
+      return 'not_submitted';
+    }
+
+    // All tasks are not started → Not Started
+    if (notStartedTasks.length === assignmentTasks.length) {
       return 'not_started';
     }
+
+    // Any task is in progress, completed, or anything other than not_started → In Progress
+    return 'in_progress';
   };
 
   const syncAssignmentStatus = (assignmentId: string, tasksArray: Task[] = tasks) => {
@@ -260,107 +250,6 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const highlightItem = (item: Assignment | Task) => {
-    // Check if the item is already highlighted - if so, clear highlighting
-    if (filters.highlightedItems.has(item.id)) {
-      clearHighlight();
-      return;
-    }
-
-    const itemsToHighlight = new Set<string>();
-
-    if ('dueDate' in item) {
-      // It's an assignment - highlight it and all related tasks
-      itemsToHighlight.add(item.id);
-      const relatedTasks = tasks.filter(task => task.assignmentId === item.id);
-      relatedTasks.forEach(task => itemsToHighlight.add(task.id));
-    } else {
-      // It's a task - highlight it, parent assignment, and sibling tasks
-      itemsToHighlight.add(item.id);
-
-      if (item.assignmentId) {
-        // Add parent assignment
-        itemsToHighlight.add(item.assignmentId);
-        // Add sibling tasks
-        const siblingTasks = tasks.filter(task => task.assignmentId === item.assignmentId);
-        siblingTasks.forEach(task => itemsToHighlight.add(task.id));
-      }
-    }
-
-    setFilters(prev => ({
-      ...prev,
-      highlightedItems: itemsToHighlight,
-    }));
-  };
-
-  const clearHighlight = () => {
-    setFilters(prev => ({
-      ...prev,
-      highlightedItems: new Set<string>(),
-    }));
-  };
-
-  const toggleSelectItem = (itemId: string) => {
-    setSelectedItems(prev => {
-      const newSelection = new Set(prev);
-      if (newSelection.has(itemId)) {
-        newSelection.delete(itemId);
-      } else {
-        newSelection.add(itemId);
-      }
-      return newSelection;
-    });
-  };
-
-  const selectMultipleItems = (itemIds: string[]) => {
-    setSelectedItems(prev => {
-      const newSelection = new Set(prev);
-      itemIds.forEach(id => newSelection.add(id));
-      return newSelection;
-    });
-  };
-
-  const clearSelection = () => {
-    setSelectedItems(new Set());
-  };
-
-  const deleteSelectedItems = () => {
-    selectedItems.forEach(itemId => {
-      // Check if it's a task first
-      const task = tasks.find(t => t.id === itemId);
-      if (task) {
-        deleteTask(itemId);
-        return;
-      }
-
-      // Check if it's an assignment
-      const assignment = assignments.find(a => a.id === itemId);
-      if (assignment) {
-        deleteAssignment(itemId);
-      }
-    });
-    clearSelection();
-  };
-
-  const startDragSelection = (x: number, y: number) => {
-    setIsDragging(true);
-    setDragStartPos({ x, y });
-    setDragCurrentPos({ x, y });
-    // Clear existing selection when starting new drag
-    clearSelection();
-  };
-
-  const updateDragSelection = (x: number, y: number) => {
-    if (isDragging) {
-      setDragCurrentPos({ x, y });
-    }
-  };
-
-  const endDragSelection = () => {
-    setIsDragging(false);
-    setDragStartPos(null);
-    setDragCurrentPos(null);
-  };
 
   return (
     <PotionContext.Provider
@@ -384,22 +273,9 @@ export function PotionProvider({ children }: { children: ReactNode }) {
         getAssignmentsByDate,
         getClassById,
         toggleClassFilter,
-        highlightItem,
-        clearHighlight,
-        selectedItems,
-        toggleSelectItem,
-        selectMultipleItems,
-        clearSelection,
-        deleteSelectedItems,
-        isDragging,
-        dragStartPos,
-        dragCurrentPos,
-        startDragSelection,
-        updateDragSelection,
-        endDragSelection,
       }}
     >
-      {children}
+      {isHydrated ? children : null}
     </PotionContext.Provider>
   );
 }

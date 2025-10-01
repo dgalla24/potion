@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePotion } from '@/hooks/usePotion';
 import { Assignment, Task, Class } from '@/types';
-import { X, Calendar, ChevronDown } from 'lucide-react';
+import { X, Calendar, ChevronDown, Clock, Tag, FileText, CheckSquare, Folder } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 
 interface ItemModalProps {
@@ -11,24 +11,31 @@ interface ItemModalProps {
   defaultDate?: Date;
   defaultAssignmentId?: string;
   onClose: () => void;
+  isNew?: boolean;
 }
 
 type ItemType = 'task' | 'assignment';
 type ItemStatus = 'not_started' | 'in_progress' | 'completed' | 'not_submitted' | 'submitted';
 
-export default function ItemModal({ item, defaultDate, defaultAssignmentId, onClose }: ItemModalProps) {
+export default function ItemModal({ item, defaultDate, defaultAssignmentId, onClose, isNew = false }: ItemModalProps) {
   const {
     addAssignment,
     updateAssignment,
     addTask,
     updateTask,
+    deleteTask,
+    deleteAssignment,
     classes,
     addClass,
     deleteClass,
-    assignments,
-    filters,
-    highlightItem
+    assignments
   } = usePotion();
+
+  const titleRef = useRef<HTMLInputElement>(null);
+  const hasCreatedRef = useRef(false);
+  const hasInitializedRef = useRef(false);
+  const isConvertingTypeRef = useRef(false);
+  const [currentItem, setCurrentItem] = useState<Assignment | Task | null>(item || null);
 
   const [itemType, setItemType] = useState<ItemType>(() => {
     if (item) {
@@ -37,9 +44,106 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
     return defaultAssignmentId ? 'task' : 'assignment';
   });
 
-  const [title, setTitle] = useState(item?.title || '');
+  // Create item immediately if it's new
+  useEffect(() => {
+    if (isNew && !currentItem && !hasCreatedRef.current) {
+      hasCreatedRef.current = true;
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      const dateValue = new Date(year, month - 1, day);
+
+      if (itemType === 'assignment') {
+        const newAssignment = addAssignment({
+          title: 'Untitled',
+          description: '',
+          dueDate: dateValue,
+          classId: classId || undefined,
+          status: status as any,
+          planned: false,
+        });
+        setCurrentItem(newAssignment);
+      } else {
+        const newTask = addTask({
+          title: 'Untitled',
+          description: '',
+          scheduledDate: dateValue,
+          hours: parseFloat(hours) || 1,
+          classId: classId || undefined,
+          assignmentId: assignmentId || undefined,
+          status: status as any,
+        });
+        setCurrentItem(newTask);
+      }
+    }
+  }, []);
+
+  // Focus title on mount
+  useEffect(() => {
+    if (titleRef.current) {
+      titleRef.current.focus();
+    }
+  }, []);
+
+  // Handle type switching - convert between task and assignment
+  useEffect(() => {
+    if (!currentItem) return;
+
+    const currentItemType = 'dueDate' in currentItem ? 'assignment' : 'task';
+
+    // If type has changed, we need to delete the old item and create a new one
+    if (currentItemType !== itemType) {
+      isConvertingTypeRef.current = true;
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      const dateValue = new Date(year, month - 1, day);
+
+      // Delete the old item
+      if (currentItemType === 'assignment') {
+        deleteAssignment(currentItem.id);
+      } else {
+        deleteTask(currentItem.id);
+      }
+
+      // Create the new item with the same data
+      if (itemType === 'assignment') {
+        const newAssignment = addAssignment({
+          title: title || 'Untitled',
+          description: description,
+          dueDate: dateValue,
+          classId: classId || undefined,
+          status: status as any,
+          planned: planned,
+        });
+        setCurrentItem(newAssignment);
+      } else {
+        const newTask = addTask({
+          title: title || 'Untitled',
+          description: description,
+          scheduledDate: dateValue,
+          hours: parseFloat(hours) || 1,
+          classId: classId || undefined,
+          assignmentId: assignmentId || undefined,
+          status: status as any,
+        });
+        setCurrentItem(newTask);
+      }
+
+      // Allow auto-save again after a short delay
+      setTimeout(() => {
+        isConvertingTypeRef.current = false;
+      }, 100);
+    }
+  }, [itemType]);
+
+  const [title, setTitle] = useState(item?.title || 'Untitled');
   const [description, setDescription] = useState(item?.description || '');
-  const [classId, setClassId] = useState<string>(item?.classId || '');
+  const [classId, setClassId] = useState<string>(() => {
+    if (item?.classId) return item.classId;
+    // If creating a task for a highlighted assignment, inherit its class
+    if (defaultAssignmentId) {
+      const parentAssignment = assignments.find(a => a.id === defaultAssignmentId);
+      return parentAssignment?.classId || '';
+    }
+    return '';
+  });
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     if (item) {
       if ('dueDate' in item) {
@@ -69,11 +173,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
     if (item && 'assignmentId' in item) {
       return item.assignmentId || '';
     }
-    return defaultAssignmentId || (() => {
-      // Auto-link to highlighted assignment
-      const highlightedAssignments = assignments.filter(a => filters.highlightedItems.has(a.id));
-      return highlightedAssignments.length === 1 ? highlightedAssignments[0].id : '';
-    })();
+    return defaultAssignmentId || '';
   });
 
   const [status, setStatus] = useState<ItemStatus>(() => {
@@ -83,8 +183,17 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
     return 'not_started';
   });
 
+  const [planned, setPlanned] = useState(() => {
+    if (item && 'planned' in item) {
+      return item.planned;
+    }
+    return false;
+  });
+
   const [showClassDropdown, setShowClassDropdown] = useState(false);
   const [showAssignmentDropdown, setShowAssignmentDropdown] = useState(false);
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [newClassName, setNewClassName] = useState('');
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -92,64 +201,95 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
     classId: string;
   } | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Auto-save function
+  const autoSave = () => {
+    // Don't auto-save during type conversion
+    if (isConvertingTypeRef.current) return;
 
-    if (!title.trim()) return;
+    const targetItem = currentItem || item;
+    if (!targetItem) return;
 
-    // Create date in local timezone to avoid timezone shifts
     const [year, month, day] = selectedDate.split('-').map(Number);
     const dateValue = new Date(year, month - 1, day);
 
-    if (itemType === 'assignment') {
-      const assignmentData = {
-        title: title.trim(),
-        description: description.trim(),
-        dueDate: dateValue.toISOString(),
+    // Determine actual item type from the item itself
+    const actualItemType = 'dueDate' in targetItem ? 'assignment' : 'task';
+
+    if (actualItemType === 'assignment') {
+      updateAssignment(targetItem.id, {
+        title: title || 'Untitled',
+        description: description,
+        dueDate: dateValue,
         classId: classId || undefined,
         status: status as any,
-      };
-
-      if (item && 'dueDate' in item) {
-        updateAssignment(item.id, assignmentData);
-      } else {
-        addAssignment(assignmentData);
-      }
+        planned: planned,
+      });
     } else {
-      const taskData = {
-        title: title.trim(),
-        description: description.trim(),
-        scheduledDate: dateValue.toISOString(),
+      updateTask(targetItem.id, {
+        title: title || 'Untitled',
+        description: description,
+        scheduledDate: dateValue,
         hours: parseFloat(hours) || 1,
         classId: classId || undefined,
         assignmentId: assignmentId || undefined,
         status: status as any,
-      };
+      });
+    }
+  };
 
-      if (item && 'scheduledDate' in item) {
-        updateTask(item.id, taskData);
-      } else {
-        const newTask = addTask(taskData);
-
-        // If the task is linked to a highlighted assignment, highlight the new task
-        if (assignmentId && filters.highlightedItems.has(assignmentId)) {
-          setTimeout(() => {
-            highlightItem(newTask);
-          }, 100);
-        }
-      }
+  // Auto-save when values change
+  useEffect(() => {
+    // Skip the first render to avoid saving before user interacts
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      return;
     }
 
+    if (currentItem || item) {
+      const timeoutId = setTimeout(autoSave, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [title, description, selectedDate, hours, classId, assignmentId, status, itemType, planned]);
+
+  // Handle close with auto-save
+  const handleClose = () => {
+    autoSave();
     onClose();
   };
+
+  // Handle background click
+  const handleBackgroundClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Check if click is inside any dropdown
+      if (target.closest('[data-dropdown]')) {
+        return;
+      }
+      setShowTypeDropdown(false);
+      setShowStatusDropdown(false);
+      setShowClassDropdown(false);
+      setShowAssignmentDropdown(false);
+    };
+
+    if (showTypeDropdown || showStatusDropdown || showClassDropdown || showAssignmentDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showTypeDropdown, showStatusDropdown, showClassDropdown, showAssignmentDropdown]);
 
   const handleAddClass = (className: string) => {
     if (!className.trim()) return;
 
     const newClass = addClass({
       name: className.trim(),
-      emoji: '',
-      color: '#3B82F6'
+      emoji: ''
     });
 
     setClassId(newClass.id);
@@ -183,312 +323,375 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
     }
   };
 
-  const availableAssignments = assignments.filter(a => !classId || a.classId === classId);
+  // Show all assignments in the dropdown, not just ones matching the current class
+  const availableAssignments = assignments;
 
-  const renderDescriptionWithCheckboxes = (description: string) => {
-    const lines = description.split('\n');
-
-    return lines.map((line, index) => {
-      const checkboxMatch = line.match(/^(\s*)\[([ xX])\]\s*(.*)$/);
-
-      if (checkboxMatch) {
-        const [, indent, checked, text] = checkboxMatch;
-        const isChecked = checked.toLowerCase() === 'x';
-
-        const toggleCheckbox = () => {
-          const newLines = [...lines];
-          newLines[index] = `${indent}[${isChecked ? ' ' : 'x'}] ${text}`;
-          setDescription(newLines.join('\n'));
-        };
-
-        return (
-          <div key={index} className="flex items-start gap-3 py-1" style={{ marginLeft: indent.length * 16 }}>
-            <button
-              type="button"
-              onClick={toggleCheckbox}
-              className={`flex-shrink-0 w-4 h-4 mt-0.5 border-2 rounded-md flex items-center justify-center transition-all duration-200 hover:scale-110 ${
-                isChecked
-                  ? 'bg-green-500 border-green-500 text-white shadow-sm'
-                  : 'border-gray-300 dark:border-gray-600 hover:border-green-400 dark:hover:border-green-500 bg-white dark:bg-gray-800'
-              }`}
-            >
-              {isChecked && (
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              )}
-            </button>
-            <span className={`text-sm leading-relaxed ${isChecked ? 'line-through text-gray-500 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}`}>
-              {text}
-            </span>
-          </div>
-        );
-      }
-
-      return (
-        <div key={index} className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed py-1 whitespace-pre-wrap">
-          {line}
-        </div>
-      );
-    });
-  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between p-8 border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-2xl font-light text-gray-900 dark:text-gray-100">
-            {item ? 'Edit' : 'New'} {itemType === 'assignment' ? 'Assignment' : 'Task'}
-          </h2>
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={handleBackgroundClick}
+    >
+      <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden shadow-2xl border border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex items-center justify-end p-4">
           <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            onClick={handleClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 space-y-8 max-h-[calc(90vh-120px)] overflow-y-auto">
-          {/* Title - Page heading style */}
+        <div className="px-12 pb-10 space-y-8 max-h-[calc(85vh-80px)] overflow-y-auto">
+          {/* Title - Document-style heading */}
           <div>
             <input
+              ref={titleRef}
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-gray-100"
-              placeholder={`${itemType === 'assignment' ? 'Assignment' : 'Task'} title...`}
-              required
+              className="w-full text-6xl font-bold bg-transparent border-none outline-none placeholder-gray-300/60 dark:placeholder-gray-600/60 text-gray-900 dark:text-gray-100 leading-tight py-4"
+              placeholder="Untitled"
             />
           </div>
 
-          {/* Metadata Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Type Dropdown */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Type</label>
-              <div className="relative">
-                <select
-                  value={itemType}
-                  onChange={(e) => setItemType(e.target.value as ItemType)}
-                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
-                >
-                  <option value="task">Task</option>
-                  <option value="assignment">Assignment</option>
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          {/* Properties - Vertical stack with icons */}
+          <div className="space-y-5">
+            {/* Type */}
+            <div className="flex items-center gap-4 group">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 w-28 flex-shrink-0 uppercase tracking-wide">
+                <FileText className="w-3.5 h-3.5 opacity-60" />
+                <span>Type</span>
+              </div>
+              <div className="flex-1">
+                <div className="relative" data-dropdown>
+                  <button
+                    type="button"
+                    onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+                    className="flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:bg-gray-50/70 dark:hover:bg-gray-800/70 px-2 py-1.5 rounded-md transition-all duration-150 font-medium"
+                  >
+                    <span>{itemType === 'task' ? 'Task' : 'Assignment'}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 ml-1" />
+                  </button>
+
+                  {showTypeDropdown && (
+                    <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-xl z-10 min-w-[140px]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setItemType('task');
+                          setShowTypeDropdown(false);
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                      >
+                        Task
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setItemType('assignment');
+                          setShowTypeDropdown(false);
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                      >
+                        Assignment
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Status Dropdown */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
-              <div className="relative">
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as ItemStatus)}
-                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none appearance-none cursor-pointer text-gray-900 dark:text-gray-100"
-                >
-                  <option value="not_started">Not Started</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                  {itemType === 'assignment' && (
-                    <>
-                      <option value="not_submitted">Not Submitted</option>
-                      <option value="submitted">Submitted</option>
-                    </>
+            {/* Status */}
+            <div className="flex items-center gap-4 group">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 w-28 flex-shrink-0 uppercase tracking-wide">
+                <CheckSquare className="w-3.5 h-3.5 opacity-60" />
+                <span>Status</span>
+              </div>
+              <div className="flex-1">
+                <div className="relative" data-dropdown>
+                  <button
+                    type="button"
+                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                    className="flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:bg-gray-50/70 dark:hover:bg-gray-800/70 px-2 py-1.5 rounded-md transition-all duration-150 font-medium"
+                  >
+                    <span>
+                      {status === 'not_started' && 'Not Started'}
+                      {status === 'in_progress' && 'In Progress'}
+                      {status === 'completed' && 'Completed'}
+                      {status === 'not_submitted' && 'Not Submitted'}
+                      {status === 'submitted' && 'Submitted'}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 ml-1" />
+                  </button>
+
+                  {showStatusDropdown && (
+                    <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-xl z-10 min-w-[160px]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStatus('not_started');
+                          setShowStatusDropdown(false);
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                      >
+                        Not Started
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStatus('in_progress');
+                          setShowStatusDropdown(false);
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                      >
+                        In Progress
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStatus('completed');
+                          setShowStatusDropdown(false);
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                      >
+                        Completed
+                      </button>
+                      {itemType === 'assignment' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStatus('not_submitted');
+                              setShowStatusDropdown(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                          >
+                            Not Submitted
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStatus('submitted');
+                              setShowStatusDropdown(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                          >
+                            Submitted
+                          </button>
+                        </>
+                      )}
+                    </div>
                   )}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
               </div>
             </div>
+
+            {/* Planned (Assignments only) */}
+            {itemType === 'assignment' && (
+              <div className="flex items-center gap-4 group">
+                <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 w-28 flex-shrink-0 uppercase tracking-wide">
+                  <CheckSquare className="w-3.5 h-3.5 opacity-60" />
+                  <span>Planned</span>
+                </div>
+                <div className="flex-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={planned}
+                      onChange={(e) => setPlanned(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {planned ? 'Yes' : 'No'}
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
 
             {/* Date */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                {itemType === 'assignment' ? 'Due Date' : 'Scheduled Date'}
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-4 group">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 w-28 flex-shrink-0 uppercase tracking-wide">
+                <Calendar className="w-3.5 h-3.5 opacity-60" />
+                <span>{itemType === 'assignment' ? 'Due' : 'Date'}</span>
+              </div>
+              <div className="flex-1">
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 dark:text-gray-100"
-                  required
+                  className="bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 cursor-pointer py-1.5 px-2 hover:bg-gray-50/70 dark:hover:bg-gray-800/70 rounded-md transition-all duration-150 font-medium"
                 />
               </div>
             </div>
 
             {/* Hours (Tasks only) */}
             {itemType === 'task' && (
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Hours</label>
-                <input
-                  type="number"
-                  min="0.5"
-                  max="24"
-                  step="0.5"
-                  value={hours}
-                  onChange={(e) => setHours(e.target.value)}
-                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 dark:text-gray-100 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  style={{ MozAppearance: 'textfield' }}
-                />
+              <div className="flex items-center gap-4 group">
+                <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 w-28 flex-shrink-0 uppercase tracking-wide">
+                  <Clock className="w-3.5 h-3.5 opacity-60" />
+                  <span>Hours</span>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="0.5"
+                      max="24"
+                      step="0.5"
+                      value={hours}
+                      onChange={(e) => setHours(e.target.value)}
+                      className="w-20 bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none py-1.5 px-2 hover:bg-gray-50/70 dark:hover:bg-gray-800/70 rounded-md transition-all duration-150 font-medium"
+                      style={{ MozAppearance: 'textfield' }}
+                    />
+                    <span className="text-sm text-gray-400">hours</span>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
           {/* Class Selection */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Class</label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowClassDropdown(!showClassDropdown)}
-                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-sm hover:shadow-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-left transition-all duration-200 text-gray-900 dark:text-gray-100"
-              >
-                <span>
+          <div className="flex items-center gap-4 group">
+            <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 w-28 flex-shrink-0 uppercase tracking-wide">
+              <Folder className="w-3.5 h-3.5 opacity-60" />
+              <span>Class</span>
+            </div>
+            <div className="flex-1">
+              <div className="relative" data-dropdown>
+                <button
+                  type="button"
+                  onClick={() => setShowClassDropdown(!showClassDropdown)}
+                  className="flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:bg-gray-50/70 dark:hover:bg-gray-800/70 px-2 py-1.5 rounded-md transition-all duration-150 font-medium"
+                >
                   {classId ? (() => {
                     const selectedClass = classes.find(c => c.id === classId);
-                    return selectedClass ? `${selectedClass.emoji} ${selectedClass.name}`.trim() : 'Select a class';
-                  })() : 'Select a class'}
-                </span>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              </button>
+                    return selectedClass ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50/80 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-md text-sm font-medium">
+                        {selectedClass.emoji && <span>{selectedClass.emoji}</span>}
+                        <span>{selectedClass.name}</span>
+                      </span>
+                    ) : 'Select a class';
+                  })() : (
+                    <span className="text-gray-400 dark:text-gray-500 text-sm">Add class...</span>
+                  )}
+                  <ChevronDown className="w-3.5 h-3.5 text-gray-400 ml-1" />
+                </button>
 
-              {showClassDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg z-10 max-h-64 overflow-y-auto">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setClassId('');
-                      setShowClassDropdown(false);
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100"
-                  >
-                    No class
-                  </button>
-                  {classes.map((cls) => (
+                {showClassDropdown && (
+                  <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-xl z-10 min-w-48 max-h-64 overflow-y-auto">
                     <button
-                      key={cls.id}
                       type="button"
                       onClick={() => {
-                        setClassId(cls.id);
+                        setClassId('');
                         setShowClassDropdown(false);
                       }}
-                      onContextMenu={(e) => handleClassRightClick(e, cls.id)}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-gray-900 dark:text-gray-100"
+                      className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 text-sm"
                     >
-                      {cls.emoji && <span>{cls.emoji}</span>}
-                      <span>{cls.name}</span>
+                      No class
                     </button>
-                  ))}
-                  <div className="border-t border-gray-200 dark:border-gray-600 p-4">
-                    <input
-                      type="text"
-                      value={newClassName}
-                      onChange={(e) => setNewClassName(e.target.value)}
-                      onKeyDown={handleClassKeyDown}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900 dark:text-gray-100"
-                      placeholder="Type new class name and press Enter"
-                    />
+                    {classes.map((cls) => (
+                      <button
+                        key={cls.id}
+                        type="button"
+                        onClick={() => {
+                          setClassId(cls.id);
+                          setShowClassDropdown(false);
+                        }}
+                        onContextMenu={(e) => handleClassRightClick(e, cls.id)}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2 text-gray-900 dark:text-gray-100 text-sm"
+                      >
+                        {cls.emoji && <span>{cls.emoji}</span>}
+                        <span>{cls.name}</span>
+                      </button>
+                    ))}
+                    <div className="border-t border-gray-200/50 dark:border-gray-600/50 p-2">
+                      <input
+                        type="text"
+                        value={newClassName}
+                        onChange={(e) => setNewClassName(e.target.value)}
+                        onKeyDown={handleClassKeyDown}
+                        className="w-full px-2 py-1 bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 text-sm placeholder-gray-400"
+                        placeholder="Type new class name..."
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
           {/* Assignment Link (Tasks only) */}
           {itemType === 'task' && (
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Assignment (Optional)</label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowAssignmentDropdown(!showAssignmentDropdown)}
-                  className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-sm hover:shadow-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-left transition-all duration-200 text-gray-900 dark:text-gray-100"
-                >
-                  <span>
+            <div className="flex items-center gap-4 group">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 w-28 flex-shrink-0 uppercase tracking-wide">
+                <Tag className="w-3.5 h-3.5 opacity-60" />
+                <span>Assignment</span>
+              </div>
+              <div className="flex-1">
+                <div className="relative" data-dropdown>
+                  <button
+                    type="button"
+                    onClick={() => setShowAssignmentDropdown(!showAssignmentDropdown)}
+                    className="flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:bg-gray-50/70 dark:hover:bg-gray-800/70 px-2 py-1.5 rounded-md transition-all duration-150 font-medium"
+                  >
                     {assignmentId ? (() => {
                       const selectedAssignment = assignments.find(a => a.id === assignmentId);
-                      return selectedAssignment ? selectedAssignment.title : 'Select an assignment';
-                    })() : 'Link to assignment'}
-                  </span>
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </button>
+                      return selectedAssignment ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50/80 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-md text-sm font-medium">
+                          📋 {selectedAssignment.title}
+                        </span>
+                      ) : 'Select an assignment';
+                    })() : (
+                      <span className="text-gray-400 dark:text-gray-500 text-sm">Link to assignment...</span>
+                    )}
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 ml-1" />
+                  </button>
 
-                {showAssignmentDropdown && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAssignmentId('');
-                        setShowAssignmentDropdown(false);
-                      }}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100"
-                    >
-                      No assignment
-                    </button>
-                    {availableAssignments.map((assignment) => (
+                  {showAssignmentDropdown && (
+                    <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-xl z-10 min-w-48 max-h-48 overflow-y-auto">
                       <button
-                        key={assignment.id}
                         type="button"
                         onClick={() => {
-                          setAssignmentId(assignment.id);
+                          setAssignmentId('');
                           setShowAssignmentDropdown(false);
                         }}
-                        className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100"
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 text-sm"
                       >
-                        {assignment.title}
+                        No assignment
                       </button>
-                    ))}
-                  </div>
-                )}
+                      {availableAssignments.map((assignment) => (
+                        <button
+                          key={assignment.id}
+                          type="button"
+                          onClick={() => {
+                            setAssignmentId(assignment.id);
+                            setShowAssignmentDropdown(false);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                        >
+                          {assignment.title}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-4 pt-6 border-t border-gray-100 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-3 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors font-medium shadow-lg hover:shadow-xl"
-            >
-              {item ? 'Update' : 'Create'} {itemType === 'assignment' ? 'Assignment' : 'Task'}
-            </button>
-          </div>
-
-          {/* Description - At the bottom */}
-          <div className="space-y-4 border-t border-gray-100 dark:border-gray-700 pt-8">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
-
-            {/* Preview Mode */}
-            {description && (
-              <div className="max-h-48 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-2">
-                {renderDescriptionWithCheckboxes(description)}
-              </div>
-            )}
-
-            {/* Edit Mode */}
+          {/* Description - Notion-style editor */}
+          <div className="pt-8 border-t border-gray-100/30 dark:border-gray-700/30 mt-2">
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-4 py-3 bg-transparent border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-gray-900 dark:text-gray-100"
-              rows={4}
-              placeholder="Add description... (Use [ ] for checkboxes, e.g., '[ ] Item to check')"
+              className="w-full px-1 py-3 bg-transparent border-none outline-none resize-none text-gray-900 dark:text-gray-100 placeholder-gray-300/70 dark:placeholder-gray-600/70 min-h-[200px] text-[15px] leading-relaxed focus:placeholder-gray-400/50"
+              placeholder="Add a description..."
             />
-
-            <div className="text-xs text-gray-500 dark:text-gray-400">
-              💡 Type [ ] to create checkboxes that you can interact with
-            </div>
           </div>
-        </form>
+
+        </div>
       </div>
 
       {contextMenu && (

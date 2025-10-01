@@ -116,12 +116,10 @@ interface TaskItemProps {
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
   onUpdateDescription: (id: string, description: string) => void;
-  onHighlight: (task: Task) => void;
-  highlightedItems: Set<string>;
   getClassById: (id: string) => import('@/types').Class | undefined;
 }
 
-function TaskItem({ task, onStatusChange, onEdit, onDelete, onUpdateDescription, onHighlight, highlightedItems, getClassById }: TaskItemProps) {
+function TaskItem({ task, onStatusChange, onEdit, onDelete, onUpdateDescription, getClassById }: TaskItemProps) {
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -169,26 +167,9 @@ function TaskItem({ task, onStatusChange, onEdit, onDelete, onUpdateDescription,
     });
   };
 
-  const getHighlightStyles = () => {
-    if (highlightedItems.size === 0) {
-      return ''; // No highlighting active
-    }
-
-    if (highlightedItems.has(task.id)) {
-      return 'ring-2 ring-blue-500 shadow-lg'; // Highlighted
-    } else {
-      return 'opacity-30'; // Dimmed
-    }
-  };
 
   const handleTaskClick = (e: React.MouseEvent) => {
-    if (e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      onHighlight(task);
-    } else {
-      onEdit(task);
-    }
+    onEdit(task);
   };
 
   return (
@@ -198,7 +179,7 @@ function TaskItem({ task, onStatusChange, onEdit, onDelete, onUpdateDescription,
           task.status === 'completed'
             ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
             : 'surface border-gray-200 dark:border-gray-700 hover:scale-[1.01]'
-        } ${getHighlightStyles()}`}
+        }`}
         onContextMenu={handleRightClick}
       >
         <button
@@ -263,7 +244,7 @@ function TaskItem({ task, onStatusChange, onEdit, onDelete, onUpdateDescription,
 }
 
 export default function DailyTodoList() {
-  const { getTodayTasks, updateTask, deleteTask, getClassById, filters, highlightItem, clearHighlight } = usePotion();
+  const { getTodayTasks, updateTask, deleteTask, getClassById } = usePotion();
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
@@ -303,7 +284,7 @@ export default function DailyTodoList() {
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Today's Tasks</h1>
+        <h1 className="text-3xl font-bold mb-2">Today&apos;s Tasks</h1>
         <p className="text-muted text-lg">{today}</p>
 
         <div className="mt-6 flex items-center gap-3 flex-wrap">
@@ -315,25 +296,6 @@ export default function DailyTodoList() {
           </div>
         </div>
 
-        {/* Active Highlighting */}
-        {filters.highlightedItems.size > 0 && (
-          <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
-                Highlighting {filters.highlightedItems.size} related items
-              </span>
-              <button
-                onClick={clearHighlight}
-                className="text-sm text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-200 font-medium"
-              >
-                Clear highlight
-              </button>
-            </div>
-            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
-              💡 Shift+click on any task to change the highlight
-            </p>
-          </div>
-        )}
       </div>
 
       {todayTasks.length === 0 ? (
@@ -342,7 +304,7 @@ export default function DailyTodoList() {
             <Check className="w-20 h-20 mx-auto opacity-40" />
           </div>
           <h3 className="text-xl font-semibold mb-3">No tasks for today</h3>
-          <p className="text-muted mb-6 text-lg">You're all caught up! Add some tasks to stay productive.</p>
+          <p className="text-muted mb-6 text-lg">You&apos;re all caught up! Add some tasks to stay productive.</p>
           <button
             onClick={handleAddTask}
             className="btn btn-primary"
@@ -360,8 +322,6 @@ export default function DailyTodoList() {
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
               onUpdateDescription={handleUpdateDescription}
-              onHighlight={highlightItem}
-              highlightedItems={filters.highlightedItems}
               getClassById={getClassById}
             />
           ))}
@@ -389,6 +349,7 @@ export default function DailyTodoList() {
           item={editingTask || undefined}
           defaultDate={new Date()}
           onClose={handleCloseModal}
+          isNew={!editingTask}
         />
       )}
     </div>
