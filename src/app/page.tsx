@@ -4,11 +4,12 @@ import { useState } from 'react';
 import Navigation from '@/components/Navigation';
 import Calendar from '@/components/Calendar';
 import DailyTodoList from '@/components/DailyTodoList';
+import DailyChecklist from '@/components/DailyChecklist';
 
 export default function HomePage() {
-  const [currentView, setCurrentView] = useState<'calendar' | 'todo'>('todo');
+  const [currentView, setCurrentView] = useState<'calendar' | 'todo' | 'daily'>('todo');
 
-  const handleViewChange = (view: 'calendar' | 'todo') => {
+  const handleViewChange = (view: 'calendar' | 'todo' | 'daily') => {
     console.log('View change requested:', view);
     setCurrentView(view);
   };
@@ -23,7 +24,9 @@ export default function HomePage() {
       />
 
       <main className="flex-1">
-        {currentView === 'calendar' ? <Calendar /> : <DailyTodoList />}
+        {currentView === 'calendar' && <Calendar />}
+        {currentView === 'todo' && <DailyTodoList />}
+        {currentView === 'daily' && <DailyChecklist />}
       </main>
     </div>
   );

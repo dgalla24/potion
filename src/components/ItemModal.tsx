@@ -2,22 +2,23 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { usePotion } from '@/hooks/usePotion';
-import { Assignment, Task, Class } from '@/types';
+import { Assignment, Task, Class, Exam, Event } from '@/types';
 import { X, Calendar, ChevronDown, Clock, Tag, FileText, CheckSquare, Folder } from 'lucide-react';
 import ContextMenu from './ContextMenu';
 
 interface ItemModalProps {
-  item?: Assignment | Task;
+  item?: Assignment | Task | Exam | Event;
   defaultDate?: Date;
   defaultAssignmentId?: string;
+  defaultExamId?: string;
   onClose: () => void;
   isNew?: boolean;
 }
 
-type ItemType = 'task' | 'assignment';
-type ItemStatus = 'not_started' | 'in_progress' | 'completed' | 'not_submitted' | 'submitted';
+type ItemType = 'task' | 'assignment' | 'exam' | 'event';
+type ItemStatus = 'not_started' | 'in_progress' | 'completed';
 
-export default function ItemModal({ item, defaultDate, defaultAssignmentId, onClose, isNew = false }: ItemModalProps) {
+export default function ItemModal({ item, defaultDate, defaultAssignmentId, defaultExamId, onClose, isNew = false }: ItemModalProps) {
   const {
     addAssignment,
     updateAssignment,
@@ -25,23 +26,31 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
     updateTask,
     deleteTask,
     deleteAssignment,
+    addExam,
+    updateExam,
+    deleteExam,
+    addEvent,
+    updateEvent,
+    deleteEvent,
     classes,
     addClass,
     deleteClass,
-    assignments
+    assignments,
+    exams
   } = usePotion();
 
   const titleRef = useRef<HTMLInputElement>(null);
   const hasCreatedRef = useRef(false);
   const hasInitializedRef = useRef(false);
   const isConvertingTypeRef = useRef(false);
-  const [currentItem, setCurrentItem] = useState<Assignment | Task | null>(item || null);
+  const [currentItem, setCurrentItem] = useState<Assignment | Task | Exam | Event | null>(item || null);
 
   const [itemType, setItemType] = useState<ItemType>(() => {
-    if (item) {
-      return 'dueDate' in item ? 'assignment' : 'task';
-    }
-    return defaultAssignmentId ? 'task' : 'assignment';
+    // Get type from the item itself
+    if (item) return item.type;
+    // If there's a default assignment ID or exam ID, create a task
+    if (defaultAssignmentId || defaultExamId) return 'task';
+    return 'assignment';
   });
 
   // Create item immediately if it's new
@@ -61,7 +70,17 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
           planned: false,
         });
         setCurrentItem(newAssignment);
-      } else {
+      } else if (itemType === 'exam') {
+        const newExam = addExam({
+          title: 'Untitled',
+          description: '',
+          dueDate: dateValue,
+          classId: classId || undefined,
+          status: status as any,
+          planned: false,
+        });
+        setCurrentItem(newExam);
+      } else if (itemType === 'task') {
         const newTask = addTask({
           title: 'Untitled',
           description: '',
@@ -69,9 +88,22 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
           hours: parseFloat(hours) || 1,
           classId: classId || undefined,
           assignmentId: assignmentId || undefined,
+          examId: examId || undefined,
           status: status as any,
         });
         setCurrentItem(newTask);
+      } else if (itemType === 'event') {
+        const newEvent = addEvent({
+          title: 'Untitled',
+          description: '',
+          scheduledDate: dateValue,
+          hours: parseFloat(hours) || 1,
+          classId: classId || undefined,
+          assignmentId: assignmentId || undefined,
+          examId: examId || undefined,
+          status: status as any,
+        });
+        setCurrentItem(newEvent);
       }
     }
   }, []);
@@ -83,11 +115,11 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
     }
   }, []);
 
-  // Handle type switching - convert between task and assignment
+  // Handle type switching - convert between types
   useEffect(() => {
     if (!currentItem) return;
 
-    const currentItemType = 'dueDate' in currentItem ? 'assignment' : 'task';
+    const currentItemType = currentItem.type;
 
     // If type has changed, we need to delete the old item and create a new one
     if (currentItemType !== itemType) {
@@ -95,25 +127,49 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
       const [year, month, day] = selectedDate.split('-').map(Number);
       const dateValue = new Date(year, month - 1, day);
 
-      // Delete the old item
+      // Delete the old item based on its current type
       if (currentItemType === 'assignment') {
         deleteAssignment(currentItem.id);
-      } else {
+      } else if (currentItemType === 'task') {
         deleteTask(currentItem.id);
+      } else if (currentItemType === 'exam') {
+        deleteExam(currentItem.id);
+      } else if (currentItemType === 'event') {
+        deleteEvent(currentItem.id);
       }
 
       // Create the new item with the same data
       if (itemType === 'assignment') {
+        // Reset task/event-specific fields
+        setAssignmentId('');
+        setExamId('');
+        setHours('1');
         const newAssignment = addAssignment({
           title: title || 'Untitled',
           description: description,
           dueDate: dateValue,
           classId: classId || undefined,
-          status: status as any,
+          status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
           planned: planned,
         });
         setCurrentItem(newAssignment);
-      } else {
+      } else if (itemType === 'exam') {
+        // Reset task/event-specific fields
+        setAssignmentId('');
+        setExamId('');
+        setHours('1');
+        const newExam = addExam({
+          title: title || 'Untitled',
+          description: description,
+          dueDate: dateValue,
+          classId: classId || undefined,
+          status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
+          planned: planned,
+        });
+        setCurrentItem(newExam);
+      } else if (itemType === 'task') {
+        // Reset assignment/exam-specific field
+        setPlanned(false);
         const newTask = addTask({
           title: title || 'Untitled',
           description: description,
@@ -121,9 +177,24 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
           hours: parseFloat(hours) || 1,
           classId: classId || undefined,
           assignmentId: assignmentId || undefined,
-          status: status as any,
+          examId: examId || undefined,
+          status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
         });
         setCurrentItem(newTask);
+      } else if (itemType === 'event') {
+        // Reset assignment/exam-specific field
+        setPlanned(false);
+        const newEvent = addEvent({
+          title: title || 'Untitled',
+          description: description,
+          scheduledDate: dateValue,
+          hours: parseFloat(hours) || 1,
+          classId: classId || undefined,
+          assignmentId: assignmentId || undefined,
+          examId: examId || undefined,
+          status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
+        });
+        setCurrentItem(newEvent);
       }
 
       // Allow auto-save again after a short delay
@@ -137,10 +208,14 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
   const [description, setDescription] = useState(item?.description || '');
   const [classId, setClassId] = useState<string>(() => {
     if (item?.classId) return item.classId;
-    // If creating a task for a highlighted assignment, inherit its class
+    // If creating a task/event for a highlighted assignment/exam, inherit its class
     if (defaultAssignmentId) {
       const parentAssignment = assignments.find(a => a.id === defaultAssignmentId);
       return parentAssignment?.classId || '';
+    }
+    if (defaultExamId) {
+      const parentExam = exams.find(e => e.id === defaultExamId);
+      return parentExam?.classId || '';
     }
     return '';
   });
@@ -176,6 +251,13 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
     return defaultAssignmentId || '';
   });
 
+  const [examId, setExamId] = useState(() => {
+    if (item && 'examId' in item) {
+      return item.examId || '';
+    }
+    return defaultExamId || '';
+  });
+
   const [status, setStatus] = useState<ItemStatus>(() => {
     if (item) {
       return item.status as ItemStatus;
@@ -192,6 +274,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
 
   const [showClassDropdown, setShowClassDropdown] = useState(false);
   const [showAssignmentDropdown, setShowAssignmentDropdown] = useState(false);
+  const [showExamDropdown, setShowExamDropdown] = useState(false);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [newClassName, setNewClassName] = useState('');
@@ -213,7 +296,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
     const dateValue = new Date(year, month - 1, day);
 
     // Determine actual item type from the item itself
-    const actualItemType = 'dueDate' in targetItem ? 'assignment' : 'task';
+    const actualItemType = targetItem.type;
 
     if (actualItemType === 'assignment') {
       updateAssignment(targetItem.id, {
@@ -224,7 +307,16 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
         status: status as any,
         planned: planned,
       });
-    } else {
+    } else if (actualItemType === 'exam') {
+      updateExam(targetItem.id, {
+        title: title || 'Untitled',
+        description: description,
+        dueDate: dateValue,
+        classId: classId || undefined,
+        status: status as any,
+        planned: planned,
+      });
+    } else if (actualItemType === 'task') {
       updateTask(targetItem.id, {
         title: title || 'Untitled',
         description: description,
@@ -232,6 +324,18 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
         hours: parseFloat(hours) || 1,
         classId: classId || undefined,
         assignmentId: assignmentId || undefined,
+        examId: examId || undefined,
+        status: status as any,
+      });
+    } else if (actualItemType === 'event') {
+      updateEvent(targetItem.id, {
+        title: title || 'Untitled',
+        description: description,
+        scheduledDate: dateValue,
+        hours: parseFloat(hours) || 1,
+        classId: classId || undefined,
+        assignmentId: assignmentId || undefined,
+        examId: examId || undefined,
         status: status as any,
       });
     }
@@ -249,7 +353,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
       const timeoutId = setTimeout(autoSave, 500);
       return () => clearTimeout(timeoutId);
     }
-  }, [title, description, selectedDate, hours, classId, assignmentId, status, itemType, planned]);
+  }, [title, description, selectedDate, hours, classId, assignmentId, examId, status, itemType, planned]);
 
   // Handle close with auto-save
   const handleClose = () => {
@@ -276,13 +380,14 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
       setShowStatusDropdown(false);
       setShowClassDropdown(false);
       setShowAssignmentDropdown(false);
+      setShowExamDropdown(false);
     };
 
-    if (showTypeDropdown || showStatusDropdown || showClassDropdown || showAssignmentDropdown) {
+    if (showTypeDropdown || showStatusDropdown || showClassDropdown || showAssignmentDropdown || showExamDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [showTypeDropdown, showStatusDropdown, showClassDropdown, showAssignmentDropdown]);
+  }, [showTypeDropdown, showStatusDropdown, showClassDropdown, showAssignmentDropdown, showExamDropdown]);
 
   const handleAddClass = (className: string) => {
     if (!className.trim()) return;
@@ -370,7 +475,12 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
                     onClick={() => setShowTypeDropdown(!showTypeDropdown)}
                     className="flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:bg-gray-50/70 dark:hover:bg-gray-800/70 px-2 py-1.5 rounded-md transition-all duration-150 font-medium"
                   >
-                    <span>{itemType === 'task' ? 'Task' : 'Assignment'}</span>
+                    <span>
+                      {itemType === 'task' && 'Task'}
+                      {itemType === 'assignment' && 'Assignment'}
+                      {itemType === 'exam' && 'Exam'}
+                      {itemType === 'event' && 'Event'}
+                    </span>
                     <ChevronDown className="w-3.5 h-3.5 text-gray-400 ml-1" />
                   </button>
 
@@ -396,6 +506,26 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
                       >
                         Assignment
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setItemType('exam');
+                          setShowTypeDropdown(false);
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                      >
+                        Exam
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setItemType('event');
+                          setShowTypeDropdown(false);
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                      >
+                        Event
+                      </button>
                     </div>
                   )}
                 </div>
@@ -419,8 +549,6 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
                       {status === 'not_started' && 'Not Started'}
                       {status === 'in_progress' && 'In Progress'}
                       {status === 'completed' && 'Completed'}
-                      {status === 'not_submitted' && 'Not Submitted'}
-                      {status === 'submitted' && 'Submitted'}
                     </span>
                     <ChevronDown className="w-3.5 h-3.5 text-gray-400 ml-1" />
                   </button>
@@ -457,38 +585,14 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
                       >
                         Completed
                       </button>
-                      {itemType === 'assignment' && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setStatus('not_submitted');
-                              setShowStatusDropdown(false);
-                            }}
-                            className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
-                          >
-                            Not Submitted
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setStatus('submitted');
-                              setShowStatusDropdown(false);
-                            }}
-                            className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
-                          >
-                            Submitted
-                          </button>
-                        </>
-                      )}
                     </div>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Planned (Assignments only) */}
-            {itemType === 'assignment' && (
+            {/* Planned (Assignments and Exams only) */}
+            {(itemType === 'assignment' || itemType === 'exam') && (
               <div className="flex items-center gap-4 group">
                 <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 w-28 flex-shrink-0 uppercase tracking-wide">
                   <CheckSquare className="w-3.5 h-3.5 opacity-60" />
@@ -526,8 +630,8 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
               </div>
             </div>
 
-            {/* Hours (Tasks only) */}
-            {itemType === 'task' && (
+            {/* Hours (Tasks and Events only) */}
+            {(itemType === 'task' || itemType === 'event') && (
               <div className="flex items-center gap-4 group">
                 <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 w-28 flex-shrink-0 uppercase tracking-wide">
                   <Clock className="w-3.5 h-3.5 opacity-60" />
@@ -622,8 +726,8 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
             </div>
           </div>
 
-          {/* Assignment Link (Tasks only) */}
-          {itemType === 'task' && (
+          {/* Assignment Link (Tasks and Events) */}
+          {(itemType === 'task' || itemType === 'event') && (
             <div className="flex items-center gap-4 group">
               <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 w-28 flex-shrink-0 uppercase tracking-wide">
                 <Tag className="w-3.5 h-3.5 opacity-60" />
@@ -672,6 +776,65 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, onCl
                           className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
                         >
                           {assignment.title}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Exam Link (Tasks and Events) */}
+          {(itemType === 'task' || itemType === 'event') && (
+            <div className="flex items-center gap-4 group">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-gray-500 w-28 flex-shrink-0 uppercase tracking-wide">
+                <Tag className="w-3.5 h-3.5 opacity-60" />
+                <span>Exam</span>
+              </div>
+              <div className="flex-1">
+                <div className="relative" data-dropdown>
+                  <button
+                    type="button"
+                    onClick={() => setShowExamDropdown(!showExamDropdown)}
+                    className="flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:bg-gray-50/70 dark:hover:bg-gray-800/70 px-2 py-1.5 rounded-md transition-all duration-150 font-medium"
+                  >
+                    {examId ? (() => {
+                      const selectedExam = exams.find(e => e.id === examId);
+                      return selectedExam ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-orange-50/80 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-md text-sm font-medium">
+                          📝 {selectedExam.title}
+                        </span>
+                      ) : 'Select an exam';
+                    })() : (
+                      <span className="text-gray-400 dark:text-gray-500 text-sm">Link to exam...</span>
+                    )}
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 ml-1" />
+                  </button>
+
+                  {showExamDropdown && (
+                    <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-lg shadow-xl z-10 min-w-48 max-h-48 overflow-y-auto">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExamId('');
+                          setShowExamDropdown(false);
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 text-sm"
+                      >
+                        No exam
+                      </button>
+                      {exams.map((exam) => (
+                        <button
+                          key={exam.id}
+                          type="button"
+                          onClick={() => {
+                            setExamId(exam.id);
+                            setShowExamDropdown(false);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                        >
+                          {exam.title}
                         </button>
                       ))}
                     </div>

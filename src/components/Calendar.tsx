@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Filter, Plus, X } from 'lucide-react';
 import { usePotion } from '@/hooks/usePotion';
 import { formatShortDate, getCalendarDays, isSameDay, isToday } from '@/lib/utils';
-import { Assignment, Task } from '@/types';
+import { Assignment, Task, Exam, Event } from '@/types';
 import ItemModal from './ItemModal';
 import ContextMenu from './ContextMenu';
 
@@ -13,15 +13,21 @@ interface CalendarDayProps {
   currentMonth: number;
   assignments: Assignment[];
   tasks: Task[];
+  exams: Exam[];
+  events: Event[];
   showAssignments: boolean;
   showTasks: boolean;
+  showExams: boolean;
+  showEvents: boolean;
   onAddItem: (date: Date) => void;
-  onEditItem: (item: Assignment | Task) => void;
-  onDeleteItem: (item: Assignment | Task) => void;
+  onEditItem: (item: Assignment | Task | Exam | Event) => void;
+  onDeleteItem: (item: Assignment | Task | Exam | Event) => void;
   getClassById: (id: string) => import('@/types').Class | undefined;
   onDropItem: (date: Date, itemData: any) => void;
   highlightedAssignmentId: string | null;
+  highlightedExamId: string | null;
   onHighlightAssignment: (assignmentId: string | null) => void;
+  onHighlightExam: (examId: string | null) => void;
 }
 
 function CalendarDay({
@@ -29,29 +35,35 @@ function CalendarDay({
   currentMonth,
   assignments,
   tasks,
+  exams,
+  events,
   showAssignments,
   showTasks,
+  showExams,
+  showEvents,
   onAddItem,
   onEditItem,
   onDeleteItem,
   getClassById,
   onDropItem,
   highlightedAssignmentId,
-  onHighlightAssignment
+  highlightedExamId,
+  onHighlightAssignment,
+  onHighlightExam
 }: CalendarDayProps) {
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    item: Assignment | Task;
+    item: Assignment | Task | Exam | Event;
   } | null>(null);
 
   const isCurrentDay = isToday(date);
   const isCurrentMonthDate = date.getMonth() === currentMonth;
 
   // Calculate total hours for the day
-  const totalHours = tasks.reduce((sum, task) => sum + task.hours, 0);
+  const totalHours = tasks.reduce((sum, task) => sum + task.hours, 0) + events.reduce((sum, event) => sum + event.hours, 0);
 
-  const handleRightClick = (e: React.MouseEvent, item: Assignment | Task) => {
+  const handleRightClick = (e: React.MouseEvent, item: Assignment | Task | Exam | Event) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({
@@ -61,24 +73,58 @@ function CalendarDay({
     });
   };
 
-  const handleItemClick = (e: React.MouseEvent, item: Assignment | Task) => {
-    // Handle shift+click for highlighting assignment and related tasks
+  const handleItemClick = (e: React.MouseEvent, item: Assignment | Task | Exam | Event) => {
+    // Handle shift+click for highlighting assignment/exam and related tasks/events
     if (e.shiftKey) {
       e.stopPropagation();
-      if ('dueDate' in item) {
+      if (item.type === 'assignment') {
         // Clicked on assignment - toggle highlight
         if (highlightedAssignmentId === item.id) {
           onHighlightAssignment(null);
         } else {
           onHighlightAssignment(item.id);
+          onHighlightExam(null); // Clear exam highlight
         }
-      } else {
-        // Clicked on task - highlight its parent assignment if it has one
+      } else if (item.type === 'exam') {
+        // Clicked on exam - toggle highlight
+        if (highlightedExamId === item.id) {
+          onHighlightExam(null);
+        } else {
+          onHighlightExam(item.id);
+          onHighlightAssignment(null); // Clear assignment highlight
+        }
+      } else if (item.type === 'task') {
+        // Clicked on task - highlight its parent assignment or exam
         if (item.assignmentId) {
           if (highlightedAssignmentId === item.assignmentId) {
             onHighlightAssignment(null);
           } else {
             onHighlightAssignment(item.assignmentId);
+            onHighlightExam(null);
+          }
+        } else if (item.examId) {
+          if (highlightedExamId === item.examId) {
+            onHighlightExam(null);
+          } else {
+            onHighlightExam(item.examId);
+            onHighlightAssignment(null);
+          }
+        }
+      } else if (item.type === 'event') {
+        // Clicked on event - highlight its parent assignment or exam
+        if (item.assignmentId) {
+          if (highlightedAssignmentId === item.assignmentId) {
+            onHighlightAssignment(null);
+          } else {
+            onHighlightAssignment(item.assignmentId);
+            onHighlightExam(null);
+          }
+        } else if (item.examId) {
+          if (highlightedExamId === item.examId) {
+            onHighlightExam(null);
+          } else {
+            onHighlightExam(item.examId);
+            onHighlightAssignment(null);
           }
         }
       }
@@ -102,10 +148,19 @@ function CalendarDay({
     }
   };
 
-  const getTypePillColors = (type: 'task' | 'assignment') => {
-    return type === 'task'
-      ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-      : 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300';
+  const getTypePillColors = (type: 'task' | 'assignment' | 'exam' | 'event') => {
+    switch (type) {
+      case 'task':
+        return 'bg-slate-100 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300';
+      case 'assignment':
+        return 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300';
+      case 'exam':
+        return 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300';
+      case 'event':
+        return 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300';
+      default:
+        return 'bg-gray-50 text-gray-700 dark:bg-gray-900/20 dark:text-gray-300';
+    }
   };
 
 
@@ -162,7 +217,7 @@ function CalendarDay({
             const assignmentTasks = tasks.filter(task => task.assignmentId === assignment.id);
             const isPlanned = assignment.planned; // Use the planned field from the assignment
             const isHighlighted = highlightedAssignmentId === assignment.id;
-            const isDimmed = highlightedAssignmentId !== null && !isHighlighted;
+            const isDimmed = (highlightedAssignmentId !== null || highlightedExamId !== null) && !isHighlighted;
             return (
               <div
                 key={assignment.id}
@@ -191,11 +246,7 @@ function CalendarDay({
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium w-fit ${getTypePillColors('assignment')}`}>
                     Assignment
                   </span>
-                  {isPlanned ? (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 w-fit">
-                      Planned
-                    </span>
-                  ) : (
+                  {!isPlanned && (
                     <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 w-fit">
                       Unplanned
                     </span>
@@ -203,7 +254,7 @@ function CalendarDay({
                 </div>
                 {assignmentClass && (
                   <div className="mt-2">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 w-fit">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 w-fit">
                       {assignmentClass.name}
                     </span>
                   </div>
@@ -214,8 +265,9 @@ function CalendarDay({
 
           {showTasks && tasks.map(task => {
             const taskClass = task.classId ? getClassById(task.classId) : null;
-            const isHighlighted = task.assignmentId && highlightedAssignmentId === task.assignmentId;
-            const isDimmed = highlightedAssignmentId !== null && !isHighlighted;
+            const isHighlighted = (task.assignmentId && highlightedAssignmentId === task.assignmentId) ||
+                                  (task.examId && highlightedExamId === task.examId);
+            const isDimmed = (highlightedAssignmentId !== null || highlightedExamId !== null) && !isHighlighted;
             return (
               <div
                 key={task.id}
@@ -250,8 +302,106 @@ function CalendarDay({
                 </div>
                 {taskClass && (
                   <div className="mt-2">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 w-fit">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 w-fit">
                       {taskClass.name}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {showExams && exams.map(exam => {
+            const examClass = exam.classId ? getClassById(exam.classId) : null;
+            const isPlanned = exam.planned;
+            const isHighlighted = highlightedExamId === exam.id;
+            const isDimmed = (highlightedAssignmentId !== null || highlightedExamId !== null) && !isHighlighted;
+            return (
+              <div
+                key={exam.id}
+                data-item-id={exam.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', JSON.stringify({
+                    type: 'exam',
+                    id: exam.id,
+                    originalDate: exam.dueDate
+                  }));
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                className={`p-3 rounded-lg border cursor-move transition-all duration-200 hover:shadow-md transform hover:scale-[1.02] select-none ${
+                  isHighlighted
+                    ? 'ring-2 ring-orange-500 ring-offset-2 dark:ring-offset-gray-900 shadow-lg scale-[1.02]'
+                    : ''
+                } ${isDimmed ? 'opacity-30' : ''} ${getItemStatusColors(exam.status)}`}
+                onClick={(e) => handleItemClick(e, exam)}
+                onContextMenu={(e) => handleRightClick(e, exam)}
+              >
+                <div className="text-sm font-semibold mb-2 line-clamp-2 leading-tight text-gray-900 dark:text-gray-100">
+                  {exam.title}
+                </div>
+                <div className="flex flex-col gap-2 mb-2">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium w-fit ${getTypePillColors('exam')}`}>
+                    Exam
+                  </span>
+                  {!isPlanned && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 w-fit">
+                      Unplanned
+                    </span>
+                  )}
+                </div>
+                {examClass && (
+                  <div className="mt-2">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 w-fit">
+                      {examClass.name}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {showEvents && events.map(event => {
+            const eventClass = event.classId ? getClassById(event.classId) : null;
+            const isHighlighted = (event.assignmentId && highlightedAssignmentId === event.assignmentId) ||
+                                  (event.examId && highlightedExamId === event.examId);
+            const isDimmed = (highlightedAssignmentId !== null || highlightedExamId !== null) && !isHighlighted;
+            return (
+              <div
+                key={event.id}
+                data-item-id={event.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', JSON.stringify({
+                    type: 'event',
+                    id: event.id,
+                    originalDate: event.scheduledDate
+                  }));
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                className={`p-3 rounded-lg border cursor-move transition-all duration-200 hover:shadow-md transform hover:scale-[1.02] select-none ${
+                  isHighlighted
+                    ? 'ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-900 shadow-lg scale-[1.02]'
+                    : ''
+                } ${isDimmed ? 'opacity-30' : ''} ${getItemStatusColors(event.status)}`}
+                onClick={(e) => handleItemClick(e, event)}
+                onContextMenu={(e) => handleRightClick(e, event)}
+              >
+                <div className="text-sm font-semibold mb-2 line-clamp-2 leading-tight text-gray-900 dark:text-gray-100">
+                  {event.title}
+                </div>
+                <div className="flex flex-col gap-2 mb-2">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium w-fit ${getTypePillColors('event')}`}>
+                    Event
+                  </span>
+                  <span className="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium w-fit">
+                    {event.hours}h
+                  </span>
+                </div>
+                {eventClass && (
+                  <div className="mt-2">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 w-fit">
+                      {eventClass.name}
                     </span>
                   </div>
                 )}
@@ -277,13 +427,19 @@ export default function Calendar() {
   const {
     getAssignmentsByDate,
     getTasksByDate,
+    getExamsByDate,
+    getEventsByDate,
     assignments,
     filters,
     setFilters,
     deleteAssignment,
     deleteTask,
+    deleteExam,
+    deleteEvent,
     updateAssignment,
     updateTask,
+    updateExam,
+    updateEvent,
     getClassById,
     toggleClassFilter
   } = usePotion();
@@ -291,8 +447,9 @@ export default function Calendar() {
   const [showFilters, setShowFilters] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [editingItem, setEditingItem] = useState<Assignment | Task | null>(null);
+  const [editingItem, setEditingItem] = useState<Assignment | Task | Exam | Event | null>(null);
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState<string | null>(null);
+  const [highlightedExamId, setHighlightedExamId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const days = getCalendarDays(currentDate);
@@ -315,6 +472,10 @@ export default function Calendar() {
       updateAssignment(itemData.id, { dueDate: date });
     } else if (itemData.type === 'task') {
       updateTask(itemData.id, { scheduledDate: date });
+    } else if (itemData.type === 'exam') {
+      updateExam(itemData.id, { dueDate: date });
+    } else if (itemData.type === 'event') {
+      updateEvent(itemData.id, { scheduledDate: date });
     }
   };
 
@@ -325,17 +486,21 @@ export default function Calendar() {
     setShowModal(true);
   };
 
-  const handleEditItem = (item: Assignment | Task) => {
+  const handleEditItem = (item: Assignment | Task | Exam | Event) => {
     setEditingItem(item);
     setSelectedDate(null);
     setShowModal(true);
   };
 
-  const handleDeleteItem = (item: Assignment | Task) => {
-    if ('scheduledDate' in item) {
+  const handleDeleteItem = (item: Assignment | Task | Exam | Event) => {
+    if (item.type === 'task') {
       deleteTask(item.id);
-    } else {
+    } else if (item.type === 'assignment') {
       deleteAssignment(item.id);
+    } else if (item.type === 'exam') {
+      deleteExam(item.id);
+    } else if (item.type === 'event') {
+      deleteEvent(item.id);
     }
   };
 
@@ -390,6 +555,24 @@ export default function Calendar() {
                         className="mr-3 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                       />
                       <span className="text-sm group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">Tasks</span>
+                    </label>
+                    <label className="flex items-center cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={filters.showExams}
+                        onChange={(e) => setFilters({ ...filters, showExams: e.target.checked })}
+                        className="mr-3 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                      <span className="text-sm group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">Exams</span>
+                    </label>
+                    <label className="flex items-center cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={filters.showEvents}
+                        onChange={(e) => setFilters({ ...filters, showEvents: e.target.checked })}
+                        className="mr-3 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                      <span className="text-sm group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">Events</span>
                     </label>
                   </div>
                 </div>
@@ -478,15 +661,21 @@ export default function Calendar() {
                 currentMonth={currentDate.getMonth()}
                 assignments={getAssignmentsByDate(date)}
                 tasks={getTasksByDate(date)}
+                exams={getExamsByDate(date)}
+                events={getEventsByDate(date)}
                 showAssignments={filters.showAssignments}
                 showTasks={filters.showTasks}
+                showExams={filters.showExams}
+                showEvents={filters.showEvents}
                 onAddItem={handleAddItem}
                 onEditItem={handleEditItem}
                 onDeleteItem={handleDeleteItem}
                 getClassById={getClassById}
                 onDropItem={handleDropItem}
                 highlightedAssignmentId={highlightedAssignmentId}
+                highlightedExamId={highlightedExamId}
                 onHighlightAssignment={setHighlightedAssignmentId}
+                onHighlightExam={setHighlightedExamId}
               />
             ))}
           </div>
@@ -497,6 +686,7 @@ export default function Calendar() {
             item={editingItem || undefined}
             defaultDate={selectedDate || undefined}
             defaultAssignmentId={highlightedAssignmentId || undefined}
+            defaultExamId={highlightedExamId || undefined}
             onClose={handleCloseModal}
             isNew={!editingItem}
           />

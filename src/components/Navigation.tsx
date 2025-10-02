@@ -1,11 +1,11 @@
 'use client';
 
-import { Calendar as CalendarIcon, CheckSquare, Moon, Sun } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckSquare, Moon, Sun, ListChecks } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 
 interface NavigationProps {
-  currentView: 'calendar' | 'todo';
-  onViewChange: (view: 'calendar' | 'todo') => void;
+  currentView: 'calendar' | 'todo' | 'daily';
+  onViewChange: (view: 'calendar' | 'todo' | 'daily') => void;
 }
 
 export default function Navigation({ currentView, onViewChange }: NavigationProps) {
@@ -19,6 +19,11 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
   const handleTodoClick = () => {
     console.log('Todo button clicked');
     onViewChange('todo');
+  };
+
+  const handleDailyClick = () => {
+    console.log('Daily button clicked');
+    onViewChange('daily');
   };
 
   console.log('Navigation current view:', currentView);
@@ -53,6 +58,18 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
               >
                 <CheckSquare className="w-4 h-4" />
                 <span>Today</span>
+              </button>
+
+              <button
+                onClick={handleDailyClick}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  currentView === 'daily'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                    : 'text-muted surface-hover'
+                }`}
+              >
+                <ListChecks className="w-4 h-4" />
+                <span>Daily</span>
               </button>
             </div>
           </div>

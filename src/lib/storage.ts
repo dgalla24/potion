@@ -1,8 +1,11 @@
-import { Assignment, Task, Class } from '@/types';
+import { Assignment, Task, Class, Exam, Event, DailyItem } from '@/types';
 
 const ASSIGNMENTS_KEY = 'potion_assignments';
 const TASKS_KEY = 'potion_tasks';
 const CLASSES_KEY = 'potion_classes';
+const EXAMS_KEY = 'potion_exams';
+const EVENTS_KEY = 'potion_events';
+const DAILY_ITEMS_KEY = 'potion_daily_items';
 
 export const storage = {
   assignments: {
@@ -36,6 +39,7 @@ export const storage = {
     add(assignment: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>): Assignment {
       const newAssignment: Assignment = {
         ...assignment,
+        type: 'assignment',
         id: crypto.randomUUID(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -103,6 +107,7 @@ export const storage = {
     add(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task {
       const newTask: Task = {
         ...task,
+        type: 'task',
         id: crypto.randomUUID(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -140,6 +145,10 @@ export const storage = {
 
     getByAssignment(assignmentId: string): Task[] {
       return this.getAll().filter(task => task.assignmentId === assignmentId);
+    },
+
+    getByExam(examId: string): Task[] {
+      return this.getAll().filter(task => task.examId === examId);
     },
 
     getByDate(date: Date): Task[] {
@@ -217,6 +226,245 @@ export const storage = {
 
       this.save(filtered);
       return true;
+    },
+  },
+
+  exams: {
+    getAll(): Exam[] {
+      if (typeof window === 'undefined') return [];
+      try {
+        const data = localStorage.getItem(EXAMS_KEY);
+        if (!data) return [];
+        const exams = JSON.parse(data);
+        return exams.map((exam: any) => ({
+          ...exam,
+          dueDate: new Date(exam.dueDate),
+          createdAt: new Date(exam.createdAt),
+          updatedAt: new Date(exam.updatedAt),
+        }));
+      } catch (error) {
+        console.error('Error loading exams:', error);
+        return [];
+      }
+    },
+
+    save(exams: Exam[]): void {
+      if (typeof window === 'undefined') return;
+      try {
+        localStorage.setItem(EXAMS_KEY, JSON.stringify(exams));
+      } catch (error) {
+        console.error('Error saving exams:', error);
+      }
+    },
+
+    add(exam: Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>): Exam {
+      const newExam: Exam = {
+        ...exam,
+        type: 'exam',
+        id: crypto.randomUUID(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const exams = this.getAll();
+      exams.push(newExam);
+      this.save(exams);
+      return newExam;
+    },
+
+    update(id: string, updates: Partial<Omit<Exam, 'id' | 'createdAt'>>): Exam | null {
+      const exams = this.getAll();
+      const index = exams.findIndex(e => e.id === id);
+      if (index === -1) return null;
+
+      exams[index] = {
+        ...exams[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+
+      this.save(exams);
+      return exams[index];
+    },
+
+    delete(id: string): boolean {
+      const exams = this.getAll();
+      const filtered = exams.filter(e => e.id !== id);
+      if (filtered.length === exams.length) return false;
+
+      this.save(filtered);
+      return true;
+    },
+  },
+
+  events: {
+    getAll(): Event[] {
+      if (typeof window === 'undefined') return [];
+      try {
+        const data = localStorage.getItem(EVENTS_KEY);
+        if (!data) return [];
+        const events = JSON.parse(data);
+        return events.map((event: any) => ({
+          ...event,
+          scheduledDate: new Date(event.scheduledDate),
+          createdAt: new Date(event.createdAt),
+          updatedAt: new Date(event.updatedAt),
+        }));
+      } catch (error) {
+        console.error('Error loading events:', error);
+        return [];
+      }
+    },
+
+    save(events: Event[]): void {
+      if (typeof window === 'undefined') return;
+      try {
+        localStorage.setItem(EVENTS_KEY, JSON.stringify(events));
+      } catch (error) {
+        console.error('Error saving events:', error);
+      }
+    },
+
+    add(event: Omit<Event, 'id' | 'createdAt' | 'updatedAt'>): Event {
+      const newEvent: Event = {
+        ...event,
+        type: 'event',
+        id: crypto.randomUUID(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const events = this.getAll();
+      events.push(newEvent);
+      this.save(events);
+      return newEvent;
+    },
+
+    update(id: string, updates: Partial<Omit<Event, 'id' | 'createdAt'>>): Event | null {
+      const events = this.getAll();
+      const index = events.findIndex(e => e.id === id);
+      if (index === -1) return null;
+
+      events[index] = {
+        ...events[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+
+      this.save(events);
+      return events[index];
+    },
+
+    delete(id: string): boolean {
+      const events = this.getAll();
+      const filtered = events.filter(e => e.id !== id);
+      if (filtered.length === events.length) return false;
+
+      this.save(filtered);
+      return true;
+    },
+
+    getByAssignment(assignmentId: string): Event[] {
+      return this.getAll().filter(event => event.assignmentId === assignmentId);
+    },
+
+    getByExam(examId: string): Event[] {
+      return this.getAll().filter(event => event.examId === examId);
+    },
+
+    getByDate(date: Date): Event[] {
+      const targetDate = new Date(date);
+      targetDate.setHours(0, 0, 0, 0);
+
+      return this.getAll().filter(event => {
+        const eventDate = new Date(event.scheduledDate);
+        eventDate.setHours(0, 0, 0, 0);
+        return eventDate.getTime() === targetDate.getTime();
+      });
+    },
+  },
+
+  dailyItems: {
+    getAll(): DailyItem[] {
+      if (typeof window === 'undefined') return [];
+      try {
+        const data = localStorage.getItem(DAILY_ITEMS_KEY);
+        if (!data) return [];
+        const items = JSON.parse(data);
+        return items.map((item: any) => ({
+          ...item,
+          createdAt: new Date(item.createdAt),
+          updatedAt: new Date(item.updatedAt),
+        }));
+      } catch (error) {
+        console.error('Error loading daily items:', error);
+        return [];
+      }
+    },
+
+    save(items: DailyItem[]): void {
+      if (typeof window === 'undefined') return;
+      try {
+        localStorage.setItem(DAILY_ITEMS_KEY, JSON.stringify(items));
+      } catch (error) {
+        console.error('Error saving daily items:', error);
+      }
+    },
+
+    add(item: Omit<DailyItem, 'id' | 'createdAt' | 'updatedAt'>): DailyItem {
+      const newItem: DailyItem = {
+        ...item,
+        id: crypto.randomUUID(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const items = this.getAll();
+      items.push(newItem);
+      this.save(items);
+      return newItem;
+    },
+
+    update(id: string, updates: Partial<Omit<DailyItem, 'id' | 'createdAt'>>): DailyItem | null {
+      const items = this.getAll();
+      const index = items.findIndex(i => i.id === id);
+      if (index === -1) return null;
+
+      items[index] = {
+        ...items[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+
+      this.save(items);
+      return items[index];
+    },
+
+    delete(id: string): boolean {
+      const items = this.getAll();
+      const filtered = items.filter(i => i.id !== id);
+      if (filtered.length === items.length) return false;
+
+      this.save(filtered);
+      return true;
+    },
+
+    // Reset all items' completed status to false for a new day
+    resetForNewDay(today: string): void {
+      const items = this.getAll();
+      const updatedItems = items.map(item => {
+        // Only reset if it's a new day
+        if (item.lastResetDate !== today) {
+          return {
+            ...item,
+            completed: false,
+            lastResetDate: today,
+            updatedAt: new Date(),
+          };
+        }
+        return item;
+      });
+      this.save(updatedItems);
     },
   },
 };
