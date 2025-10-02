@@ -13,16 +13,16 @@ interface PotionContextType {
   classes: Class[];
   dailyItems: DailyItem[];
   filters: CalendarFilters;
-  addAssignment: (assignment: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>) => Assignment;
+  addAssignment: (assignment: Omit<Assignment, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Assignment;
   updateAssignment: (id: string, updates: Partial<Omit<Assignment, 'id' | 'createdAt'>>) => void;
   deleteAssignment: (id: string) => void;
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => Task;
+  addTask: (task: Omit<Task, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Task;
   updateTask: (id: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
   deleteTask: (id: string) => void;
-  addExam: (exam: Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>) => Exam;
+  addExam: (exam: Omit<Exam, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Exam;
   updateExam: (id: string, updates: Partial<Omit<Exam, 'id' | 'createdAt'>>) => void;
   deleteExam: (id: string) => void;
-  addEvent: (event: Omit<Event, 'id' | 'createdAt' | 'updatedAt'>) => Event;
+  addEvent: (event: Omit<Event, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Event;
   updateEvent: (id: string, updates: Partial<Omit<Event, 'id' | 'createdAt'>>) => void;
   deleteEvent: (id: string) => void;
   addClass: (class_: Omit<Class, 'id' | 'createdAt' | 'updatedAt'>) => Class;
@@ -76,7 +76,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     setIsHydrated(true);
   }, []);
 
-  const addAssignment = (assignmentData: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addAssignment = (assignmentData: Omit<Assignment, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
     const newAssignment = storage.assignments.add(assignmentData);
     setAssignments(prev => [...prev, newAssignment]);
     return newAssignment;
@@ -98,7 +98,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addTask = (taskData: Omit<Task, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
     const newTask = storage.tasks.add(taskData);
     setTasks(prev => {
       const updatedTasks = [...prev, newTask];
@@ -150,7 +150,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addExam = (examData: Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addExam = (examData: Omit<Exam, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
     const newExam = storage.exams.add(examData);
     setExams(prev => [...prev, newExam]);
     return newExam;
@@ -175,7 +175,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addEvent = (eventData: Omit<Event, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addEvent = (eventData: Omit<Event, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
     const newEvent = storage.events.add(eventData);
     setEvents(prev => {
       const updatedEvents = [...prev, newEvent];

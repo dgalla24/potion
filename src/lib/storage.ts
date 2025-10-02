@@ -36,7 +36,7 @@ export const storage = {
       }
     },
 
-    add(assignment: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>): Assignment {
+    add(assignment: Omit<Assignment, 'id' | 'type' | 'createdAt' | 'updatedAt'>): Assignment {
       const newAssignment: Assignment = {
         ...assignment,
         type: 'assignment',
@@ -104,7 +104,7 @@ export const storage = {
       }
     },
 
-    add(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Task {
+    add(task: Omit<Task, 'id' | 'type' | 'createdAt' | 'updatedAt'>): Task {
       const newTask: Task = {
         ...task,
         type: 'task',
@@ -257,7 +257,7 @@ export const storage = {
       }
     },
 
-    add(exam: Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>): Exam {
+    add(exam: Omit<Exam, 'id' | 'type' | 'createdAt' | 'updatedAt'>): Exam {
       const newExam: Exam = {
         ...exam,
         type: 'exam',
@@ -325,7 +325,7 @@ export const storage = {
       }
     },
 
-    add(event: Omit<Event, 'id' | 'createdAt' | 'updatedAt'>): Event {
+    add(event: Omit<Event, 'id' | 'type' | 'createdAt' | 'updatedAt'>): Event {
       const newEvent: Event = {
         ...event,
         type: 'event',
