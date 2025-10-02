@@ -90,7 +90,7 @@ export default function InstallPrompt() {
 
             {isIOS ? (
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                Tap <Share className="inline w-3 h-3 mx-1" /> then "Add to Home Screen" to install
+                Tap <Share className="inline w-3 h-3 mx-1" /> then &quot;Add to Home Screen&quot; to install
               </p>
             ) : (
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
