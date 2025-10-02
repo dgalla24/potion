@@ -5,9 +5,14 @@ import Navigation from '@/components/Navigation';
 import Calendar from '@/components/Calendar';
 import DailyTodoList from '@/components/DailyTodoList';
 import DailyChecklist from '@/components/DailyChecklist';
+import InstallPrompt from '@/components/InstallPrompt';
+import { usePWA } from '@/hooks/usePWA';
 
 export default function HomePage() {
   const [currentView, setCurrentView] = useState<'calendar' | 'todo' | 'daily'>('todo');
+
+  // Register PWA service worker
+  usePWA();
 
   const handleViewChange = (view: 'calendar' | 'todo' | 'daily') => {
     console.log('View change requested:', view);
@@ -28,6 +33,8 @@ export default function HomePage() {
         {currentView === 'todo' && <DailyTodoList />}
         {currentView === 'daily' && <DailyChecklist />}
       </main>
+
+      <InstallPrompt />
     </div>
   );
 }
