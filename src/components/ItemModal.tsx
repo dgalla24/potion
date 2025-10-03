@@ -60,51 +60,55 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
       const [year, month, day] = selectedDate.split('-').map(Number);
       const dateValue = new Date(year, month - 1, day);
 
-      if (itemType === 'assignment') {
-        const newAssignment = addAssignment({
-          title: 'Untitled',
-          description: '',
-          dueDate: dateValue,
-          classId: classId || undefined,
-          status: status as any,
-          planned: false,
-        });
-        setCurrentItem(newAssignment);
-      } else if (itemType === 'exam') {
-        const newExam = addExam({
-          title: 'Untitled',
-          description: '',
-          dueDate: dateValue,
-          classId: classId || undefined,
-          status: status as any,
-          planned: false,
-        });
-        setCurrentItem(newExam);
-      } else if (itemType === 'task') {
-        const newTask = addTask({
-          title: 'Untitled',
-          description: '',
-          scheduledDate: dateValue,
-          hours: parseFloat(hours) || 1,
-          classId: classId || undefined,
-          assignmentId: assignmentId || undefined,
-          examId: examId || undefined,
-          status: status as any,
-        });
-        setCurrentItem(newTask);
-      } else if (itemType === 'event') {
-        const newEvent = addEvent({
-          title: 'Untitled',
-          description: '',
-          scheduledDate: dateValue,
-          hours: parseFloat(hours) || 1,
-          classId: classId || undefined,
-          assignmentId: assignmentId || undefined,
-          examId: examId || undefined,
-          status: status as any,
-        });
-        setCurrentItem(newEvent);
-      }
+      const createItem = async () => {
+        if (itemType === 'assignment') {
+          const newAssignment = await addAssignment({
+            title: 'Untitled',
+            description: '',
+            dueDate: dateValue,
+            classId: classId || undefined,
+            status: status as any,
+            planned: false,
+          });
+          setCurrentItem(newAssignment);
+        } else if (itemType === 'exam') {
+          const newExam = await addExam({
+            title: 'Untitled',
+            description: '',
+            dueDate: dateValue,
+            classId: classId || undefined,
+            status: status as any,
+            planned: false,
+          });
+          setCurrentItem(newExam);
+        } else if (itemType === 'task') {
+          const newTask = await addTask({
+            title: 'Untitled',
+            description: '',
+            scheduledDate: dateValue,
+            hours: parseFloat(hours) || 1,
+            classId: classId || undefined,
+            assignmentId: assignmentId || undefined,
+            examId: examId || undefined,
+            status: status as any,
+          });
+          setCurrentItem(newTask);
+        } else if (itemType === 'event') {
+          const newEvent = await addEvent({
+            title: 'Untitled',
+            description: '',
+            scheduledDate: dateValue,
+            hours: parseFloat(hours) || 1,
+            classId: classId || undefined,
+            assignmentId: assignmentId || undefined,
+            examId: examId || undefined,
+            status: status as any,
+          });
+          setCurrentItem(newEvent);
+        }
+      };
+
+      createItem();
     }
   }, []);
 
@@ -127,80 +131,84 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
       const [year, month, day] = selectedDate.split('-').map(Number);
       const dateValue = new Date(year, month - 1, day);
 
-      // Delete the old item based on its current type
-      if (currentItemType === 'assignment') {
-        deleteAssignment(currentItem.id);
-      } else if (currentItemType === 'task') {
-        deleteTask(currentItem.id);
-      } else if (currentItemType === 'exam') {
-        deleteExam(currentItem.id);
-      } else if (currentItemType === 'event') {
-        deleteEvent(currentItem.id);
-      }
+      const convertType = async () => {
+        // Delete the old item based on its current type
+        if (currentItemType === 'assignment') {
+          await deleteAssignment(currentItem.id);
+        } else if (currentItemType === 'task') {
+          await deleteTask(currentItem.id);
+        } else if (currentItemType === 'exam') {
+          await deleteExam(currentItem.id);
+        } else if (currentItemType === 'event') {
+          await deleteEvent(currentItem.id);
+        }
 
-      // Create the new item with the same data
-      if (itemType === 'assignment') {
-        // Reset task/event-specific fields
-        setAssignmentId('');
-        setExamId('');
-        setHours('1');
-        const newAssignment = addAssignment({
-          title: title || 'Untitled',
-          description: description,
-          dueDate: dateValue,
-          classId: classId || undefined,
-          status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
-          planned: planned,
-        });
-        setCurrentItem(newAssignment);
-      } else if (itemType === 'exam') {
-        // Reset task/event-specific fields
-        setAssignmentId('');
-        setExamId('');
-        setHours('1');
-        const newExam = addExam({
-          title: title || 'Untitled',
-          description: description,
-          dueDate: dateValue,
-          classId: classId || undefined,
-          status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
-          planned: planned,
-        });
-        setCurrentItem(newExam);
-      } else if (itemType === 'task') {
-        // Reset assignment/exam-specific field
-        setPlanned(false);
-        const newTask = addTask({
-          title: title || 'Untitled',
-          description: description,
-          scheduledDate: dateValue,
-          hours: parseFloat(hours) || 1,
-          classId: classId || undefined,
-          assignmentId: assignmentId || undefined,
-          examId: examId || undefined,
-          status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
-        });
-        setCurrentItem(newTask);
-      } else if (itemType === 'event') {
-        // Reset assignment/exam-specific field
-        setPlanned(false);
-        const newEvent = addEvent({
-          title: title || 'Untitled',
-          description: description,
-          scheduledDate: dateValue,
-          hours: parseFloat(hours) || 1,
-          classId: classId || undefined,
-          assignmentId: assignmentId || undefined,
-          examId: examId || undefined,
-          status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
-        });
-        setCurrentItem(newEvent);
-      }
+        // Create the new item with the same data
+        if (itemType === 'assignment') {
+          // Reset task/event-specific fields
+          setAssignmentId('');
+          setExamId('');
+          setHours('1');
+          const newAssignment = await addAssignment({
+            title: title || 'Untitled',
+            description: description,
+            dueDate: dateValue,
+            classId: classId || undefined,
+            status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
+            planned: planned,
+          });
+          setCurrentItem(newAssignment);
+        } else if (itemType === 'exam') {
+          // Reset task/event-specific fields
+          setAssignmentId('');
+          setExamId('');
+          setHours('1');
+          const newExam = await addExam({
+            title: title || 'Untitled',
+            description: description,
+            dueDate: dateValue,
+            classId: classId || undefined,
+            status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
+            planned: planned,
+          });
+          setCurrentItem(newExam);
+        } else if (itemType === 'task') {
+          // Reset assignment/exam-specific field
+          setPlanned(false);
+          const newTask = await addTask({
+            title: title || 'Untitled',
+            description: description,
+            scheduledDate: dateValue,
+            hours: parseFloat(hours) || 1,
+            classId: classId || undefined,
+            assignmentId: assignmentId || undefined,
+            examId: examId || undefined,
+            status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
+          });
+          setCurrentItem(newTask);
+        } else if (itemType === 'event') {
+          // Reset assignment/exam-specific field
+          setPlanned(false);
+          const newEvent = await addEvent({
+            title: title || 'Untitled',
+            description: description,
+            scheduledDate: dateValue,
+            hours: parseFloat(hours) || 1,
+            classId: classId || undefined,
+            assignmentId: assignmentId || undefined,
+            examId: examId || undefined,
+            status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
+          });
+          setCurrentItem(newEvent);
+        }
 
-      // Allow auto-save again after a short delay
-      setTimeout(() => {
-        isConvertingTypeRef.current = false;
-      }, 100);
+        // Allow auto-save again after a short delay
+        setTimeout(() => {
+          isConvertingTypeRef.current = false;
+        }, 100);
+      };
+
+      convertType();
     }
   }, [itemType]);
 
@@ -285,7 +293,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
   } | null>(null);
 
   // Auto-save function
-  const autoSave = () => {
+  const autoSave = async () => {
     // Don't auto-save during type conversion
     if (isConvertingTypeRef.current) return;
 
@@ -299,7 +307,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
     const actualItemType = targetItem.type;
 
     if (actualItemType === 'assignment') {
-      updateAssignment(targetItem.id, {
+      await updateAssignment(targetItem.id, {
         title: title || 'Untitled',
         description: description,
         dueDate: dateValue,
@@ -308,7 +316,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
         planned: planned,
       });
     } else if (actualItemType === 'exam') {
-      updateExam(targetItem.id, {
+      await updateExam(targetItem.id, {
         title: title || 'Untitled',
         description: description,
         dueDate: dateValue,
@@ -317,7 +325,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
         planned: planned,
       });
     } else if (actualItemType === 'task') {
-      updateTask(targetItem.id, {
+      await updateTask(targetItem.id, {
         title: title || 'Untitled',
         description: description,
         scheduledDate: dateValue,
@@ -328,7 +336,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
         status: status as any,
       });
     } else if (actualItemType === 'event') {
-      updateEvent(targetItem.id, {
+      await updateEvent(targetItem.id, {
         title: title || 'Untitled',
         description: description,
         scheduledDate: dateValue,
@@ -389,10 +397,10 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
     }
   }, [showTypeDropdown, showStatusDropdown, showClassDropdown, showAssignmentDropdown, showExamDropdown]);
 
-  const handleAddClass = (className: string) => {
+  const handleAddClass = async (className: string) => {
     if (!className.trim()) return;
 
-    const newClass = addClass({
+    const newClass = await addClass({
       name: className.trim(),
       emoji: ''
     });
@@ -412,9 +420,9 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
     });
   };
 
-  const handleDeleteClass = () => {
+  const handleDeleteClass = async () => {
     if (contextMenu?.classId) {
-      deleteClass(contextMenu.classId);
+      await deleteClass(contextMenu.classId);
       if (classId === contextMenu.classId) {
         setClassId('');
       }

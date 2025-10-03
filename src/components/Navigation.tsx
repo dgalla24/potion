@@ -1,7 +1,8 @@
 'use client';
 
-import { Calendar as CalendarIcon, CheckSquare, Moon, Sun, ListChecks } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckSquare, Moon, Sun, ListChecks, LogOut } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuth } from '@/hooks/useAuth';
 
 interface NavigationProps {
   currentView: 'calendar' | 'todo' | 'daily';
@@ -10,6 +11,7 @@ interface NavigationProps {
 
 export default function Navigation({ currentView, onViewChange }: NavigationProps) {
   const { theme, toggleTheme } = useTheme();
+  const { signOut } = useAuth();
 
   const handleCalendarClick = () => {
     console.log('Calendar button clicked');
@@ -74,17 +76,27 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
             </div>
           </div>
 
-          <button
-            onClick={toggleTheme}
-            className="btn-ghost p-2 rounded-lg"
-            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-          >
-            {theme === 'light' ? (
-              <Moon className="w-5 h-5" />
-            ) : (
-              <Sun className="w-5 h-5" />
-            )}
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={toggleTheme}
+              className="btn-ghost p-2 rounded-lg"
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              {theme === 'light' ? (
+                <Moon className="w-5 h-5" />
+              ) : (
+                <Sun className="w-5 h-5" />
+              )}
+            </button>
+
+            <button
+              onClick={signOut}
+              className="btn-ghost p-2 rounded-lg"
+              title="Sign out"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </nav>
     </>

@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Assignment, Task, Class, CalendarFilters, AssignmentStatus, Exam, Event, ExamStatus, TaskStatus, EventStatus, DailyItem } from '@/types';
-import { storage } from '@/lib/storage';
+import { supabaseStorage as storage } from '@/lib/supabase-storage';
 import { parseLocalDate } from '@/lib/utils';
+import { useAuth } from './useAuth';
 
 interface PotionContextType {
   assignments: Assignment[];
@@ -13,24 +14,24 @@ interface PotionContextType {
   classes: Class[];
   dailyItems: DailyItem[];
   filters: CalendarFilters;
-  addAssignment: (assignment: Omit<Assignment, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Assignment;
-  updateAssignment: (id: string, updates: Partial<Omit<Assignment, 'id' | 'createdAt'>>) => void;
-  deleteAssignment: (id: string) => void;
-  addTask: (task: Omit<Task, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Task;
-  updateTask: (id: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => void;
-  deleteTask: (id: string) => void;
-  addExam: (exam: Omit<Exam, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Exam;
-  updateExam: (id: string, updates: Partial<Omit<Exam, 'id' | 'createdAt'>>) => void;
-  deleteExam: (id: string) => void;
-  addEvent: (event: Omit<Event, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Event;
-  updateEvent: (id: string, updates: Partial<Omit<Event, 'id' | 'createdAt'>>) => void;
-  deleteEvent: (id: string) => void;
-  addClass: (class_: Omit<Class, 'id' | 'createdAt' | 'updatedAt'>) => Class;
-  updateClass: (id: string, updates: Partial<Omit<Class, 'id' | 'createdAt'>>) => void;
-  deleteClass: (id: string) => void;
-  addDailyItem: (item: Omit<DailyItem, 'id' | 'createdAt' | 'updatedAt'>) => DailyItem;
-  updateDailyItem: (id: string, updates: Partial<Omit<DailyItem, 'id' | 'createdAt'>>) => void;
-  deleteDailyItem: (id: string) => void;
+  addAssignment: (assignment: Omit<Assignment, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Promise<Assignment>;
+  updateAssignment: (id: string, updates: Partial<Omit<Assignment, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteAssignment: (id: string) => Promise<void>;
+  addTask: (task: Omit<Task, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Promise<Task>;
+  updateTask: (id: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  addExam: (exam: Omit<Exam, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Promise<Exam>;
+  updateExam: (id: string, updates: Partial<Omit<Exam, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteExam: (id: string) => Promise<void>;
+  addEvent: (event: Omit<Event, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Promise<Event>;
+  updateEvent: (id: string, updates: Partial<Omit<Event, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteEvent: (id: string) => Promise<void>;
+  addClass: (class_: Omit<Class, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Class>;
+  updateClass: (id: string, updates: Partial<Omit<Class, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteClass: (id: string) => Promise<void>;
+  addDailyItem: (item: Omit<DailyItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<DailyItem>;
+  updateDailyItem: (id: string, updates: Partial<Omit<DailyItem, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteDailyItem: (id: string) => Promise<void>;
   setFilters: (filters: CalendarFilters) => void;
   getTodayTasks: () => Task[];
   getTodayEvents: () => Event[];
@@ -60,46 +61,71 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     filteredClasses: new Set<string>(),
   });
 
+  const { user, loading } = useAuth();
+
   useEffect(() => {
-    // Load data from storage
-    setAssignments(storage.assignments.getAll());
-    setTasks(storage.tasks.getAll());
-    setExams(storage.exams.getAll());
-    setEvents(storage.events.getAll());
-    setClasses(storage.classes.getAll());
+    // Only load data if user is authenticated
+    if (loading || !user) return;
 
-    // Reset daily items for new day
-    const today = new Date().toISOString().split('T')[0];
-    storage.dailyItems.resetForNewDay(today);
-    setDailyItems(storage.dailyItems.getAll());
+    const loadData = async () => {
+      try {
+        const [assignmentsData, tasksData, examsData, eventsData, classesData, dailyItemsData] = await Promise.all([
+          storage.assignments.getAll(),
+          storage.tasks.getAll(),
+          storage.exams.getAll(),
+          storage.events.getAll(),
+          storage.classes.getAll(),
+          storage.dailyItems.getAll(),
+        ]);
 
-    setIsHydrated(true);
-  }, []);
+        setAssignments(assignmentsData);
+        setTasks(tasksData);
+        setExams(examsData);
+        setEvents(eventsData);
+        setClasses(classesData);
+        setDailyItems(dailyItemsData);
 
-  const addAssignment = (assignmentData: Omit<Assignment, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
-    const newAssignment = storage.assignments.add(assignmentData);
+        // Reset daily items for new day
+        const today = new Date().toISOString().split('T')[0];
+        await storage.dailyItems.resetForNewDay(today);
+
+        setIsHydrated(true);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+
+    loadData();
+  }, [user, loading]);
+
+  const addAssignment = async (assignmentData: Omit<Assignment, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
+    const newAssignment = await storage.assignments.add(assignmentData);
     setAssignments(prev => [...prev, newAssignment]);
     return newAssignment;
   };
 
-  const updateAssignment = (id: string, updates: Partial<Omit<Assignment, 'id' | 'createdAt'>>) => {
-    const updated = storage.assignments.update(id, updates);
+  const updateAssignment = async (id: string, updates: Partial<Omit<Assignment, 'id' | 'createdAt'>>) => {
+    const updated = await storage.assignments.update(id, updates);
     if (updated) {
       setAssignments(prev => prev.map(a => a.id === id ? updated : a));
     }
   };
 
-  const deleteAssignment = (id: string) => {
-    const success = storage.assignments.delete(id);
+  const deleteAssignment = async (id: string) => {
+    const success = await storage.assignments.delete(id);
     if (success) {
       setAssignments(prev => prev.filter(a => a.id !== id));
+      // Delete related tasks
+      const relatedTasks = tasks.filter(t => t.assignmentId === id);
+      for (const task of relatedTasks) {
+        await storage.tasks.delete(task.id);
+      }
       setTasks(prev => prev.filter(t => t.assignmentId !== id));
-      storage.tasks.save(tasks.filter(t => t.assignmentId !== id));
     }
   };
 
-  const addTask = (taskData: Omit<Task, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
-    const newTask = storage.tasks.add(taskData);
+  const addTask = async (taskData: Omit<Task, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
+    const newTask = await storage.tasks.add(taskData);
     setTasks(prev => {
       const updatedTasks = [...prev, newTask];
 
@@ -114,9 +140,9 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     return newTask;
   };
 
-  const updateTask = (id: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => {
+  const updateTask = async (id: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>) => {
     const originalTask = tasks.find(t => t.id === id);
-    const updated = storage.tasks.update(id, updates);
+    const updated = await storage.tasks.update(id, updates);
     if (updated) {
       const updatedTasks = tasks.map(t => t.id === id ? updated : t);
       setTasks(updatedTasks);
@@ -133,9 +159,9 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const deleteTask = (id: string) => {
+  const deleteTask = async (id: string) => {
     const taskToDelete = tasks.find(t => t.id === id);
-    const success = storage.tasks.delete(id);
+    const success = await storage.tasks.delete(id);
     if (success) {
       const updatedTasks = tasks.filter(t => t.id !== id);
       setTasks(updatedTasks);
@@ -150,33 +176,39 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addExam = (examData: Omit<Exam, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
-    const newExam = storage.exams.add(examData);
+  const addExam = async (examData: Omit<Exam, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
+    const newExam = await storage.exams.add(examData);
     setExams(prev => [...prev, newExam]);
     return newExam;
   };
 
-  const updateExam = (id: string, updates: Partial<Omit<Exam, 'id' | 'createdAt'>>) => {
-    const updated = storage.exams.update(id, updates);
+  const updateExam = async (id: string, updates: Partial<Omit<Exam, 'id' | 'createdAt'>>) => {
+    const updated = await storage.exams.update(id, updates);
     if (updated) {
       setExams(prev => prev.map(e => e.id === id ? updated : e));
     }
   };
 
-  const deleteExam = (id: string) => {
-    const success = storage.exams.delete(id);
+  const deleteExam = async (id: string) => {
+    const success = await storage.exams.delete(id);
     if (success) {
       setExams(prev => prev.filter(e => e.id !== id));
-      // Remove exam reference from tasks and events
+      // Delete related tasks and events
+      const relatedTasks = tasks.filter(t => t.examId === id);
+      const relatedEvents = events.filter(e => e.examId === id);
+      for (const task of relatedTasks) {
+        await storage.tasks.delete(task.id);
+      }
+      for (const event of relatedEvents) {
+        await storage.events.delete(event.id);
+      }
       setTasks(prev => prev.filter(t => t.examId !== id));
       setEvents(prev => prev.filter(e => e.examId !== id));
-      storage.tasks.save(tasks.filter(t => t.examId !== id));
-      storage.events.save(events.filter(e => e.examId !== id));
     }
   };
 
-  const addEvent = (eventData: Omit<Event, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
-    const newEvent = storage.events.add(eventData);
+  const addEvent = async (eventData: Omit<Event, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => {
+    const newEvent = await storage.events.add(eventData);
     setEvents(prev => {
       const updatedEvents = [...prev, newEvent];
 
@@ -194,9 +226,9 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     return newEvent;
   };
 
-  const updateEvent = (id: string, updates: Partial<Omit<Event, 'id' | 'createdAt'>>) => {
+  const updateEvent = async (id: string, updates: Partial<Omit<Event, 'id' | 'createdAt'>>) => {
     const originalEvent = events.find(e => e.id === id);
-    const updated = storage.events.update(id, updates);
+    const updated = await storage.events.update(id, updates);
     if (updated) {
       const updatedEvents = events.map(e => e.id === id ? updated : e);
       setEvents(updatedEvents);
@@ -219,9 +251,9 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const deleteEvent = (id: string) => {
+  const deleteEvent = async (id: string) => {
     const eventToDelete = events.find(e => e.id === id);
-    const success = storage.events.delete(id);
+    const success = await storage.events.delete(id);
     if (success) {
       const updatedEvents = events.filter(e => e.id !== id);
       setEvents(updatedEvents);
@@ -236,36 +268,46 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addClass = (classData: Omit<Class, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newClass = storage.classes.add(classData);
+  const addClass = async (classData: Omit<Class, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newClass = await storage.classes.add(classData);
     setClasses(prev => [...prev, newClass]);
     return newClass;
   };
 
-  const updateClass = (id: string, updates: Partial<Omit<Class, 'id' | 'createdAt'>>) => {
-    const updated = storage.classes.update(id, updates);
+  const updateClass = async (id: string, updates: Partial<Omit<Class, 'id' | 'createdAt'>>) => {
+    const updated = await storage.classes.update(id, updates);
     if (updated) {
       setClasses(prev => prev.map(c => c.id === id ? updated : c));
     }
   };
 
-  const deleteClass = (id: string) => {
-    const success = storage.classes.delete(id);
+  const deleteClass = async (id: string) => {
+    const success = await storage.classes.delete(id);
     if (success) {
       setClasses(prev => prev.filter(c => c.id !== id));
       // Remove class reference from all entities
-      const updatedAssignments = assignments.map(a => a.classId === id ? { ...a, classId: undefined } : a);
-      const updatedTasks = tasks.map(t => t.classId === id ? { ...t, classId: undefined } : t);
-      const updatedExams = exams.map(e => e.classId === id ? { ...e, classId: undefined } : e);
-      const updatedEvents = events.map(e => e.classId === id ? { ...e, classId: undefined } : e);
-      setAssignments(updatedAssignments);
-      setTasks(updatedTasks);
-      setExams(updatedExams);
-      setEvents(updatedEvents);
-      storage.assignments.save(updatedAssignments);
-      storage.tasks.save(updatedTasks);
-      storage.exams.save(updatedExams);
-      storage.events.save(updatedEvents);
+      const assignmentsWithClass = assignments.filter(a => a.classId === id);
+      const tasksWithClass = tasks.filter(t => t.classId === id);
+      const examsWithClass = exams.filter(e => e.classId === id);
+      const eventsWithClass = events.filter(e => e.classId === id);
+
+      for (const assignment of assignmentsWithClass) {
+        await storage.assignments.update(assignment.id, { classId: undefined });
+      }
+      for (const task of tasksWithClass) {
+        await storage.tasks.update(task.id, { classId: undefined });
+      }
+      for (const exam of examsWithClass) {
+        await storage.exams.update(exam.id, { classId: undefined });
+      }
+      for (const event of eventsWithClass) {
+        await storage.events.update(event.id, { classId: undefined });
+      }
+
+      setAssignments(prev => prev.map(a => a.classId === id ? { ...a, classId: undefined } : a));
+      setTasks(prev => prev.map(t => t.classId === id ? { ...t, classId: undefined } : t));
+      setExams(prev => prev.map(e => e.classId === id ? { ...e, classId: undefined } : e));
+      setEvents(prev => prev.map(e => e.classId === id ? { ...e, classId: undefined } : e));
     }
   };
 
@@ -462,21 +504,21 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addDailyItem = (itemData: Omit<DailyItem, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newItem = storage.dailyItems.add(itemData);
+  const addDailyItem = async (itemData: Omit<DailyItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newItem = await storage.dailyItems.add(itemData);
     setDailyItems(prev => [...prev, newItem]);
     return newItem;
   };
 
-  const updateDailyItem = (id: string, updates: Partial<Omit<DailyItem, 'id' | 'createdAt'>>) => {
-    const updated = storage.dailyItems.update(id, updates);
+  const updateDailyItem = async (id: string, updates: Partial<Omit<DailyItem, 'id' | 'createdAt'>>) => {
+    const updated = await storage.dailyItems.update(id, updates);
     if (updated) {
       setDailyItems(prev => prev.map(item => item.id === id ? updated : item));
     }
   };
 
-  const deleteDailyItem = (id: string) => {
-    const success = storage.dailyItems.delete(id);
+  const deleteDailyItem = async (id: string) => {
+    const success = await storage.dailyItems.delete(id);
     if (success) {
       setDailyItems(prev => prev.filter(item => item.id !== id));
     }

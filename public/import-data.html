@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Import Data</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #1a1a2e;
+      color: white;
+    }
+    button {
+      background: #0066ff;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px 0;
+    }
+    button:hover {
+      background: #0052cc;
+    }
+    #status {
+      margin-top: 20px;
+      padding: 15px;
+      background: #2a2a3e;
+      border-radius: 8px;
+      min-height: 50px;
+    }
+    .success { color: #00ff88; }
+    .error { color: #ff4444; }
+  </style>
+</head>
+<body>
+  <h1>Import Your Data</h1>
+  <p>Click the button below to import all your data from localhost:3000 to this instance.</p>
+
+  <button onclick="importData()">Import All Data</button>
+  <button onclick="window.location.href='/debug'">View Debug Page</button>
+  <button onclick="window.location.href='/migrate'">Go to Migration</button>
+
+  <div id="status"></div>
+
+  <script>
+    function importData() {
+      const status = document.getElementById('status');
+      status.innerHTML = '<p>Importing data...</p>';
+
+      try {
+        // Classes
+        const classes = [
+          {"name":"STA 240","emoji":"📊","id":"f8d0e1a6-4c3b-4d8a-9f2e-7b3c5a1d6e8f"},
+          {"name":"MATH 216","emoji":"📐","id":"a3b7c2d1-5e6f-4a8b-9c0d-1e2f3a4b5c6d"},
+          {"name":"CS 201","emoji":"💻","id":"c5d6e7f8-9a0b-1c2d-3e4f-5a6b7c8d9e0f"},
+          {"name":"ECON 101","emoji":"💰","id":"e7f8a9b0-1c2d-3e4f-5a6b-7c8d9e0f1a2b"}
+        ];
+        localStorage.setItem('potion_classes', JSON.stringify(classes));
+
+        // Assignments
+        const assignments = [
+          {"id":"1e2f3a4b-5c6d-7e8f-9a0b-1c2d3e4f5a6b","title":"Problem Set 4","description":"","dueDate":"2025-10-13T04:00:00.000Z","status":"pending","classId":"f8d0e1a6-4c3b-4d8a-9f2e-7b3c5a1d6e8f","planned":false},
+          {"id":"3e4f5a6b-7c8d-9e0f-1a2b-3c4d5e6f7a8b","title":"Midterm Review","description":"","dueDate":"2025-10-15T04:00:00.000Z","status":"pending","classId":"f8d0e1a6-4c3b-4d8a-9f2e-7b3c5a1d6e8f","planned":false},
+          {"id":"5a6b7c8d-9e0f-1a2b-3c4d-5e6f7a8b9c0d","title":"Vector Calculus Assignment","description":"","dueDate":"2025-10-14T04:00:00.000Z","status":"pending","classId":"a3b7c2d1-5e6f-4a8b-9c0d-1e2f3a4b5c6d","planned":false},
+          {"id":"7c8d9e0f-1a2b-3c4d-5e6f-7a8b9c0d1e2f","title":"Linear Algebra Quiz Prep","description":"","dueDate":"2025-10-16T04:00:00.000Z","status":"pending","classId":"a3b7c2d1-5e6f-4a8b-9c0d-1e2f3a4b5c6d","planned":false},
+          {"id":"9e0f1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b","title":"Data Structures Project","description":"","dueDate":"2025-10-20T04:00:00.000Z","status":"pending","classId":"c5d6e7f8-9a0b-1c2d-3e4f-5a6b7c8d9e0f","planned":false},
+          {"id":"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d","title":"Algorithm Analysis","description":"","dueDate":"2025-10-18T04:00:00.000Z","status":"pending","classId":"c5d6e7f8-9a0b-1c2d-3e4f-5a6b7c8d9e0f","planned":false},
+          {"id":"3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f","title":"Supply and Demand Essay","description":"","dueDate":"2025-10-17T04:00:00.000Z","status":"pending","classId":"e7f8a9b0-1c2d-3e4f-5a6b-7c8d9e0f1a2b","planned":false},
+          {"id":"5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b","title":"Market Analysis Report","description":"","dueDate":"2025-10-21T04:00:00.000Z","status":"pending","classId":"e7f8a9b0-1c2d-3e4f-5a6b-7c8d9e0f1a2b","planned":false}
+        ];
+        localStorage.setItem('potion_assignments', JSON.stringify(assignments));
+
+        // Tasks
+        const tasks = [
+          {"id":"7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d","title":"Study Chapter 5","description":"","scheduledDate":"2025-10-13T04:00:00.000Z","hours":2,"status":"pending","classId":"f8d0e1a6-4c3b-4d8a-9f2e-7b3c5a1d6e8f","assignmentId":"1e2f3a4b-5c6d-7e8f-9a0b-1c2d3e4f5a6b"},
+          {"id":"9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f","title":"Practice Problems","description":"","scheduledDate":"2025-10-14T04:00:00.000Z","hours":1.5,"status":"pending","classId":"f8d0e1a6-4c3b-4d8a-9f2e-7b3c5a1d6e8f","assignmentId":"1e2f3a4b-5c6d-7e8f-9a0b-1c2d3e4f5a6b"},
+          {"id":"1e2f3a4b-5c6d-7e8f-9a0b-1c2d3e4f5a6b","title":"Vector Problems","description":"","scheduledDate":"2025-10-14T04:00:00.000Z","hours":2,"status":"pending","classId":"a3b7c2d1-5e6f-4a8b-9c0d-1e2f3a4b5c6d","assignmentId":"5a6b7c8d-9e0f-1a2b-3c4d-5e6f7a8b9c0d"},
+          {"id":"3a4b5c6d-7e8f-9a0b-1c2d-3e4f5a6b7c8d","title":"Matrix Operations","description":"","scheduledDate":"2025-10-15T04:00:00.000Z","hours":1,"status":"pending","classId":"a3b7c2d1-5e6f-4a8b-9c0d-1e2f3a4b5c6d","assignmentId":"7c8d9e0f-1a2b-3c4d-5e6f-7a8b9c0d1e2f"},
+          {"id":"5c6d7e8f-9a0b-1c2d-3e4f-5a6b7c8d9e0f","title":"Implement Binary Tree","description":"","scheduledDate":"2025-10-18T04:00:00.000Z","hours":3,"status":"pending","classId":"c5d6e7f8-9a0b-1c2d-3e4f-5a6b7c8d9e0f","assignmentId":"9e0f1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b"},
+          {"id":"7e8f9a0b-1c2d-3e4f-5a6b-7c8d9e0f1a2b","title":"Test Data Structure","description":"","scheduledDate":"2025-10-19T04:00:00.000Z","hours":1.5,"status":"pending","classId":"c5d6e7f8-9a0b-1c2d-3e4f-5a6b7c8d9e0f","assignmentId":"9e0f1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b"},
+          {"id":"9a0b1c2d-3e4f-5a6b-7c8d-9e0f1a2b3c4d","title":"Time Complexity Analysis","description":"","scheduledDate":"2025-10-17T04:00:00.000Z","hours":2,"status":"pending","classId":"c5d6e7f8-9a0b-1c2d-3e4f-5a6b7c8d9e0f","assignmentId":"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"},
+          {"id":"1c2d3e4f-5a6b-7c8d-9e0f-1a2b3c4d5e6f","title":"Research Examples","description":"","scheduledDate":"2025-10-16T04:00:00.000Z","hours":2,"status":"pending","classId":"e7f8a9b0-1c2d-3e4f-5a6b-7c8d9e0f1a2b","assignmentId":"3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f"}
+        ];
+        localStorage.setItem('potion_tasks', JSON.stringify(tasks));
+
+        // Exams
+        const exams = [
+          {"id":"2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e","title":"Statistics Midterm","description":"","dueDate":"2025-10-22T04:00:00.000Z","status":"pending","classId":"f8d0e1a6-4c3b-4d8a-9f2e-7b3c5a1d6e8f","planned":false},
+          {"id":"4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a","title":"Linear Algebra Final","description":"","dueDate":"2025-10-25T04:00:00.000Z","status":"pending","classId":"a3b7c2d1-5e6f-4a8b-9c0d-1e2f3a4b5c6d","planned":false},
+          {"id":"6f7a8b9c-0d1e-2f3a-4b5c-6d7e8f9a0b1c","title":"CS 201 Midterm","description":"","dueDate":"2025-10-24T04:00:00.000Z","status":"pending","classId":"c5d6e7f8-9a0b-1c2d-3e4f-5a6b7c8d9e0f","planned":false}
+        ];
+        localStorage.setItem('potion_exams', JSON.stringify(exams));
+
+        // Events
+        const events = [
+          {"id":"8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e","title":"Study Group","description":"","scheduledDate":"2025-10-15T18:00:00.000Z","hours":2,"status":"pending","classId":"f8d0e1a6-4c3b-4d8a-9f2e-7b3c5a1d6e8f"}
+        ];
+        localStorage.setItem('potion_events', JSON.stringify(events));
+
+        // Daily Items
+        const dailyItems = [
+          {"id":"0d1e2f3a-4b5c-6d7e-8f9a-0b1c2d3e4f5a","title":"Morning Exercise","completed":false,"lastResetDate":"2025-10-02"},
+          {"id":"2f3a4b5c-6d7e-8f9a-0b1c-2d3e4f5a6b7c","title":"Review Notes","completed":false,"lastResetDate":"2025-10-02"},
+          {"id":"4b5c6d7e-8f9a-0b1c-2d3e-4f5a6b7c8d9e","title":"Plan Tomorrow","completed":false,"lastResetDate":"2025-10-02"},
+          {"id":"6d7e8f9a-0b1c-2d3e-4f5a-6b7c8d9e0f1a","title":"Read Chapter","completed":false,"lastResetDate":"2025-10-02"},
+          {"id":"8f9a0b1c-2d3e-4f5a-6b7c-8d9e0f1a2b3c","title":"Practice Coding","completed":false,"lastResetDate":"2025-10-02"},
+          {"id":"0b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e","title":"Meal Prep","completed":false,"lastResetDate":"2025-10-02"},
+          {"id":"2d3e4f5a-6b7c-8d9e-0f1a-2b3c4d5e6f7a","title":"Check Email","completed":false,"lastResetDate":"2025-10-02"}
+        ];
+        localStorage.setItem('potion_dailyItems', JSON.stringify(dailyItems));
+
+        status.innerHTML = `
+          <p class="success">✓ Successfully imported:</p>
+          <ul>
+            <li>${classes.length} classes</li>
+            <li>${assignments.length} assignments</li>
+            <li>${tasks.length} tasks</li>
+            <li>${exams.length} exams</li>
+            <li>${events.length} events</li>
+            <li>${dailyItems.length} daily items</li>
+          </ul>
+          <p class="success">Now click "Go to Migration" to move this data to Supabase!</p>
+        `;
+      } catch (error) {
+        status.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+      }
+    }
+  </script>
+</body>
+</html>

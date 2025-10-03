@@ -12,10 +12,10 @@ export default function DailyChecklist() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
     if (!newItemTitle.trim()) return;
 
-    addDailyItem({
+    await addDailyItem({
       title: newItemTitle.trim(),
       completed: false,
       lastResetDate: today,
@@ -23,8 +23,8 @@ export default function DailyChecklist() {
     setNewItemTitle('');
   };
 
-  const handleToggleComplete = (id: string, currentStatus: boolean) => {
-    updateDailyItem(id, { completed: !currentStatus });
+  const handleToggleComplete = async (id: string, currentStatus: boolean) => {
+    await updateDailyItem(id, { completed: !currentStatus });
   };
 
   const handleStartEdit = (id: string, title: string) => {
@@ -32,9 +32,9 @@ export default function DailyChecklist() {
     setEditingTitle(title);
   };
 
-  const handleSaveEdit = (id: string) => {
+  const handleSaveEdit = async (id: string) => {
     if (editingTitle.trim()) {
-      updateDailyItem(id, { title: editingTitle.trim() });
+      await updateDailyItem(id, { title: editingTitle.trim() });
     }
     setEditingId(null);
     setEditingTitle('');

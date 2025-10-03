@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { AuthProvider } from '@/hooks/useAuth';
 import { PotionProvider } from '@/hooks/usePotion';
 import { ThemeProvider } from '@/hooks/useTheme';
 
@@ -34,11 +35,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ThemeProvider>
-          <PotionProvider>
-            {children}
-          </PotionProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
