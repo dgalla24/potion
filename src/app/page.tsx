@@ -43,7 +43,7 @@ export default function HomePage() {
             onViewChange={handleViewChange}
           />
 
-          <main className="flex-1">
+          <main className="flex-1 pb-20 md:pb-0">
             {currentView === 'calendar' && <Calendar />}
             {currentView === 'todo' && <DailyTodoList />}
             {currentView === 'daily' && <DailyChecklist />}
