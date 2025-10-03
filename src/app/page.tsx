@@ -6,6 +6,7 @@ import { PotionProvider } from '@/hooks/usePotion';
 import { ThemeProvider } from '@/hooks/useTheme';
 import Navigation from '@/components/Navigation';
 import Calendar from '@/components/Calendar';
+import MobileCalendar from '@/components/MobileCalendar';
 import DailyTodoList from '@/components/DailyTodoList';
 import DailyChecklist from '@/components/DailyChecklist';
 import InstallPrompt from '@/components/InstallPrompt';
@@ -44,7 +45,12 @@ export default function HomePage() {
           />
 
           <main className="flex-1 pb-20 md:pb-0">
-            {currentView === 'calendar' && <Calendar />}
+            {currentView === 'calendar' && (
+              <>
+                <div className="hidden md:block"><Calendar /></div>
+                <div className="md:hidden"><MobileCalendar /></div>
+              </>
+            )}
             {currentView === 'todo' && <DailyTodoList />}
             {currentView === 'daily' && <DailyChecklist />}
           </main>
