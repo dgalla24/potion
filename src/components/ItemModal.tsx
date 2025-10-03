@@ -229,11 +229,11 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
   });
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     if (item) {
-      if ('dueDate' in item) {
+      if ('dueDate' in item && item.dueDate) {
         // Handle both string and Date formats
         const dateValue = typeof item.dueDate === 'string' ? item.dueDate : item.dueDate.toISOString();
         return dateValue.split('T')[0];
-      } else {
+      } else if ('scheduledDate' in item && item.scheduledDate) {
         // Handle both string and Date formats
         const dateValue = typeof item.scheduledDate === 'string' ? item.scheduledDate : item.scheduledDate.toISOString();
         return dateValue.split('T')[0];
