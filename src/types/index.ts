@@ -1,4 +1,4 @@
-export type AssignmentStatus = 'not_started' | 'in_progress' | 'completed';
+export type AssignmentStatus = 'not_started' | 'in_progress' | 'completed' | 'not_submitted';
 export type TaskStatus = 'not_started' | 'in_progress' | 'completed';
 export type ExamStatus = 'not_started' | 'in_progress' | 'completed';
 export type EventStatus = 'not_started' | 'in_progress' | 'completed';

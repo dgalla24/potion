@@ -16,7 +16,7 @@ interface ItemModalProps {
 }
 
 type ItemType = 'task' | 'assignment' | 'exam' | 'event';
-type ItemStatus = 'not_started' | 'in_progress' | 'completed';
+type ItemStatus = 'not_started' | 'in_progress' | 'completed' | 'not_submitted';
 
 export default function ItemModal({ item, defaultDate, defaultAssignmentId, defaultExamId, onClose, isNew = false }: ItemModalProps) {
   const {
@@ -557,6 +557,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
                       {status === 'not_started' && 'Not Started'}
                       {status === 'in_progress' && 'In Progress'}
                       {status === 'completed' && 'Completed'}
+                      {status === 'not_submitted' && 'Not Submitted'}
                     </span>
                     <ChevronDown className="w-3.5 h-3.5 text-gray-400 ml-1" />
                   </button>
@@ -593,6 +594,18 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
                       >
                         Completed
                       </button>
+                      {itemType === 'assignment' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStatus('not_submitted');
+                            setShowStatusDropdown(false);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                        >
+                          Not Submitted
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
