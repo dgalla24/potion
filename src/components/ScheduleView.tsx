@@ -115,8 +115,11 @@ export default function ScheduleView() {
     return Math.max(0, Math.min(24 * 60 - 15, minutes));
   };
 
-  // Handle mouse down on schedule item
+  // Handle mouse down on schedule item (for resizing/moving already scheduled items)
   const handleItemMouseDown = (e: React.MouseEvent, scheduleItem: ScheduleItem) => {
+    // Only handle left mouse button
+    if (e.button !== 0) return;
+
     e.preventDefault();
     e.stopPropagation();
 
@@ -349,12 +352,15 @@ export default function ScheduleView() {
                         }));
                         e.dataTransfer.effectAllowed = 'move';
                       }}
-                      className={`p-3 rounded-lg border cursor-move hover:shadow-md transition-shadow ${
+                      className={`p-3 rounded-lg border cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${
                         isScheduled
                           ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
                           : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                       }`}
-                      onClick={() => handleItemClick(task)}
+                      onClick={(e) => {
+                        // Only handle click if not dragging
+                        handleItemClick(task);
+                      }}
                     >
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {task.title}
@@ -394,12 +400,15 @@ export default function ScheduleView() {
                         }));
                         e.dataTransfer.effectAllowed = 'move';
                       }}
-                      className={`p-3 rounded-lg border cursor-move hover:shadow-md transition-shadow ${
+                      className={`p-3 rounded-lg border cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${
                         isScheduled
                           ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800'
                           : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                       }`}
-                      onClick={() => handleItemClick(event)}
+                      onClick={(e) => {
+                        // Only handle click if not dragging
+                        handleItemClick(event);
+                      }}
                     >
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {event.title}
@@ -482,26 +491,24 @@ export default function ScheduleView() {
                 className="absolute w-full border-t border-gray-200 dark:border-gray-700"
                 style={{ top: `${hour * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
               >
-                <div className="flex">
+                <div className="flex h-full">
                   <div className="w-20 flex-shrink-0 pr-4 text-right">
                     <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                       {formatTime(hour)}
                     </span>
                   </div>
-                  <div
-                    className="flex-1 relative cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                    onClick={() => handleTimeSlotClick(hour, 0)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDropOnSchedule(e, hour, 0)}
-                  >
-                    {/* 15-minute markers */}
+                  <div className="flex-1 relative">
+                    {/* 15-minute slots - each takes up 1/4 of the hour */}
                     {[0, 1, 2, 3].map((quarter) => (
                       <div
                         key={quarter}
-                        className={`absolute w-full ${
+                        className={`absolute w-full cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors ${
                           quarter === 0 ? 'border-t border-gray-200 dark:border-gray-700' : 'border-t border-gray-100 dark:border-gray-800'
                         }`}
-                        style={{ top: `${quarter * SLOT_HEIGHT}px` }}
+                        style={{
+                          top: `${quarter * SLOT_HEIGHT}px`,
+                          height: `${SLOT_HEIGHT}px`
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleTimeSlotClick(hour, quarter * 15);
