@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/hooks/useTheme';
 import Navigation from '@/components/Navigation';
 import Calendar from '@/components/Calendar';
 import MobileCalendar from '@/components/MobileCalendar';
+import ScheduleView from '@/components/ScheduleView';
 import DailyTodoList from '@/components/DailyTodoList';
 import DailyChecklist from '@/components/DailyChecklist';
 import InstallPrompt from '@/components/InstallPrompt';
@@ -14,12 +15,12 @@ import Auth from '@/components/Auth';
 import { usePWA } from '@/hooks/usePWA';
 
 export default function HomePage() {
-  const [currentView, setCurrentView] = useState<'calendar' | 'todo' | 'daily'>('todo');
+  const [currentView, setCurrentView] = useState<'calendar' | 'todo' | 'daily' | 'schedule'>('todo');
   const { user, loading } = useAuth();
 
   usePWA();
 
-  const handleViewChange = (view: 'calendar' | 'todo' | 'daily') => {
+  const handleViewChange = (view: 'calendar' | 'todo' | 'daily' | 'schedule') => {
     setCurrentView(view);
   };
 
@@ -51,6 +52,7 @@ export default function HomePage() {
                 <div className="md:hidden"><MobileCalendar /></div>
               </>
             )}
+            {currentView === 'schedule' && <ScheduleView />}
             {currentView === 'todo' && <DailyTodoList />}
             {currentView === 'daily' && <DailyChecklist />}
           </main>

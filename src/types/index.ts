@@ -35,6 +35,7 @@ export interface Task {
   examId?: string;
   hours: number;
   classId?: string;
+  startTime?: number; // minutes from midnight (0-1439) for schedule view
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,6 +64,7 @@ export interface Event {
   examId?: string;
   hours: number;
   classId?: string;
+  startTime?: number; // minutes from midnight (0-1439) for schedule view
   createdAt: Date;
   updatedAt: Date;
 }

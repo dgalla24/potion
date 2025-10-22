@@ -1,12 +1,12 @@
 'use client';
 
-import { Calendar as CalendarIcon, CheckSquare, Moon, Sun, ListChecks, LogOut } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckSquare, Moon, Sun, ListChecks, LogOut, Clock } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NavigationProps {
-  currentView: 'calendar' | 'todo' | 'daily';
-  onViewChange: (view: 'calendar' | 'todo' | 'daily') => void;
+  currentView: 'calendar' | 'todo' | 'daily' | 'schedule';
+  onViewChange: (view: 'calendar' | 'todo' | 'daily' | 'schedule') => void;
 }
 
 export default function Navigation({ currentView, onViewChange }: NavigationProps) {
@@ -26,6 +26,11 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
   const handleDailyClick = () => {
     console.log('Daily button clicked');
     onViewChange('daily');
+  };
+
+  const handleScheduleClick = () => {
+    console.log('Schedule button clicked');
+    onViewChange('schedule');
   };
 
   console.log('Navigation current view:', currentView);
@@ -49,6 +54,18 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
               >
                 <CalendarIcon className="w-4 h-4" />
                 <span>Calendar</span>
+              </button>
+
+              <button
+                onClick={handleScheduleClick}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  currentView === 'schedule'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                    : 'text-muted surface-hover'
+                }`}
+              >
+                <Clock className="w-4 h-4" />
+                <span>Schedule</span>
               </button>
 
               <button
@@ -131,7 +148,7 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
         <div className="flex items-center justify-around py-2">
           <button
             onClick={handleCalendarClick}
-            className={`flex flex-col items-center px-4 py-2 rounded-lg transition-all duration-200 ${
+            className={`flex flex-col items-center px-3 py-2 rounded-lg transition-all duration-200 ${
               currentView === 'calendar'
                 ? 'text-blue-600 dark:text-blue-400'
                 : 'text-muted'
@@ -142,8 +159,20 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
           </button>
 
           <button
+            onClick={handleScheduleClick}
+            className={`flex flex-col items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+              currentView === 'schedule'
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-muted'
+            }`}
+          >
+            <Clock className="w-6 h-6" />
+            <span className="text-xs mt-1">Schedule</span>
+          </button>
+
+          <button
             onClick={handleTodoClick}
-            className={`flex flex-col items-center px-4 py-2 rounded-lg transition-all duration-200 ${
+            className={`flex flex-col items-center px-3 py-2 rounded-lg transition-all duration-200 ${
               currentView === 'todo'
                 ? 'text-blue-600 dark:text-blue-400'
                 : 'text-muted'
@@ -155,7 +184,7 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
 
           <button
             onClick={handleDailyClick}
-            className={`flex flex-col items-center px-4 py-2 rounded-lg transition-all duration-200 ${
+            className={`flex flex-col items-center px-3 py-2 rounded-lg transition-all duration-200 ${
               currentView === 'daily'
                 ? 'text-blue-600 dark:text-blue-400'
                 : 'text-muted'

@@ -120,6 +120,7 @@ export default function MigratePage() {
         await supabaseStorage.dailyItems.add({
           title: item.title,
           completed: item.completed || false,
+          hours: item.hours || 0,
           lastResetDate: item.lastResetDate || new Date().toISOString().split('T')[0],
         });
       }
