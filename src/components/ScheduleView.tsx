@@ -213,6 +213,25 @@ export default function ScheduleView() {
     setShowModal(true);
   };
 
+  // Handle drop from sidebar to schedule grid
+  const handleDropOnSchedule = async (e: React.DragEvent, hour: number, minute: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      const startTime = hour * 60 + minute;
+
+      if (data.type === 'task') {
+        await updateTask(data.id, { startTime });
+      } else if (data.type === 'event') {
+        await updateEvent(data.id, { startTime });
+      }
+    } catch (error) {
+      console.error('Error dropping item:', error);
+    }
+  };
+
   // Handle click on schedule item
   const handleItemClick = (item: Task | Event) => {
     setEditingItem(item);
@@ -322,11 +341,20 @@ export default function ScheduleView() {
                   return (
                     <div
                       key={task.id}
-                      className={`p-3 rounded-lg border ${
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', JSON.stringify({
+                          type: 'task',
+                          id: task.id,
+                        }));
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      className={`p-3 rounded-lg border cursor-move hover:shadow-md transition-shadow ${
                         isScheduled
                           ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
                           : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                       }`}
+                      onClick={() => handleItemClick(task)}
                     >
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {task.title}
@@ -358,11 +386,20 @@ export default function ScheduleView() {
                   return (
                     <div
                       key={event.id}
-                      className={`p-3 rounded-lg border ${
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', JSON.stringify({
+                          type: 'event',
+                          id: event.id,
+                        }));
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      className={`p-3 rounded-lg border cursor-move hover:shadow-md transition-shadow ${
                         isScheduled
                           ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800'
                           : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                       }`}
+                      onClick={() => handleItemClick(event)}
                     >
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {event.title}
@@ -454,6 +491,8 @@ export default function ScheduleView() {
                   <div
                     className="flex-1 relative cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                     onClick={() => handleTimeSlotClick(hour, 0)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleDropOnSchedule(e, hour, 0)}
                   >
                     {/* 15-minute markers */}
                     {[0, 1, 2, 3].map((quarter) => (
@@ -467,6 +506,14 @@ export default function ScheduleView() {
                           e.stopPropagation();
                           handleTimeSlotClick(hour, quarter * 15);
                         }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.stopPropagation();
+                          handleDropOnSchedule(e, hour, quarter * 15);
+                        }}
                       />
                     ))}
                   </div>
@@ -475,7 +522,7 @@ export default function ScheduleView() {
             ))}
 
             {/* Schedule items */}
-            <div className="absolute left-20 right-0 top-0 bottom-0">
+            <div className="absolute left-20 right-0 top-0 bottom-0 pointer-events-none">
               {scheduleItems.map((scheduleItem, index) => {
                 const item = draggedItem?.item.id === scheduleItem.item.id ? draggedItem : scheduleItem;
                 const top = (item.startTime / 60) * HOUR_HEIGHT;
@@ -484,7 +531,7 @@ export default function ScheduleView() {
                 return (
                   <div
                     key={scheduleItem.item.id}
-                    className={`absolute left-2 right-2 rounded-lg border-2 shadow-lg cursor-move transition-colors ${
+                    className={`absolute left-2 right-2 rounded-lg border-2 shadow-lg cursor-move transition-colors pointer-events-auto ${
                       getItemStatusColors(item.item.status)
                     } ${draggedItem?.item.id === item.item.id ? 'opacity-75 z-50' : 'z-10'}`}
                     style={{
@@ -492,7 +539,10 @@ export default function ScheduleView() {
                       height: `${Math.max(height, SLOT_HEIGHT)}px`,
                     }}
                     onMouseDown={(e) => handleItemMouseDown(e, scheduleItem)}
-                    onClick={() => handleItemClick(item.item)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleItemClick(item.item);
+                    }}
                   >
                     <div className="p-2 h-full overflow-hidden flex flex-col justify-between">
                       <div>
