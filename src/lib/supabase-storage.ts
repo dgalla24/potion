@@ -12,6 +12,7 @@ const toCamelCase = (obj: any) => {
     assignmentId: obj.assignment_id,
     examId: obj.exam_id,
     userId: obj.user_id,
+    startTime: obj.start_time,
     lastResetDate: obj.last_reset_date,
     createdAt: new Date(obj.created_at),
     updatedAt: new Date(obj.updated_at),
@@ -26,6 +27,7 @@ const toSnakeCase = (obj: any) => {
   if (obj.classId !== undefined) result.class_id = obj.classId;
   if (obj.assignmentId !== undefined) result.assignment_id = obj.assignmentId;
   if (obj.examId !== undefined) result.exam_id = obj.examId;
+  if (obj.startTime !== undefined) result.start_time = obj.startTime;
   if (obj.lastResetDate) result.last_reset_date = obj.lastResetDate;
 
   // Remove camelCase versions
@@ -35,6 +37,7 @@ const toSnakeCase = (obj: any) => {
   delete result.assignmentId;
   delete result.examId;
   delete result.userId;
+  delete result.startTime;
   delete result.lastResetDate;
   delete result.createdAt;
   delete result.updatedAt;

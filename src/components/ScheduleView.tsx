@@ -71,9 +71,9 @@ export default function ScheduleView() {
     const items: ScheduleItem[] = [];
 
     [...tasks, ...events].forEach((item) => {
-      // Check if item has startTime property (we'll add this)
+      // Check if item has startTime property
       const startTime = (item as any).startTime;
-      if (startTime !== undefined) {
+      if (startTime !== undefined && startTime !== null) {
         items.push({
           item,
           startTime, // minutes from midnight
