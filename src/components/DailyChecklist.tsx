@@ -7,8 +7,10 @@ import { Plus, Trash2, Check } from 'lucide-react';
 export default function DailyChecklist() {
   const { dailyItems, addDailyItem, updateDailyItem, deleteDailyItem } = usePotion();
   const [newItemTitle, setNewItemTitle] = useState('');
+  const [newItemHours, setNewItemHours] = useState('0');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [editingHours, setEditingHours] = useState('0');
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -18,31 +20,47 @@ export default function DailyChecklist() {
     await addDailyItem({
       title: newItemTitle.trim(),
       completed: false,
+      hours: parseFloat(newItemHours) || 0,
       lastResetDate: today,
     });
     setNewItemTitle('');
+    setNewItemHours('0');
   };
 
   const handleToggleComplete = async (id: string, currentStatus: boolean) => {
     await updateDailyItem(id, { completed: !currentStatus });
   };
 
-  const handleStartEdit = (id: string, title: string) => {
+  const handleStartEdit = (id: string, title: string, hours: number) => {
     setEditingId(id);
     setEditingTitle(title);
+    setEditingHours(hours.toString());
   };
 
   const handleSaveEdit = async (id: string) => {
     if (editingTitle.trim()) {
-      await updateDailyItem(id, { title: editingTitle.trim() });
+      await updateDailyItem(id, {
+        title: editingTitle.trim(),
+        hours: parseFloat(editingHours) || 0
+      });
     }
     setEditingId(null);
     setEditingTitle('');
+    setEditingHours('0');
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingTitle('');
+    setEditingHours('0');
+  };
+
+  const getHoursColor = (hours: number) => {
+    if (hours <= 1) return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+    if (hours <= 3) return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+    if (hours <= 5) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+    if (hours <= 8) return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+    return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, id?: string) => {
@@ -97,6 +115,16 @@ export default function DailyChecklist() {
                 placeholder="Add a new daily task..."
                 className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 text-gray-900 dark:text-gray-100 placeholder-gray-400"
               />
+              <input
+                type="number"
+                value={newItemHours}
+                onChange={(e) => setNewItemHours(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e)}
+                placeholder="Hours"
+                min="0"
+                step="0.5"
+                className="w-24 px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 text-gray-900 dark:text-gray-100 placeholder-gray-400"
+              />
               <button
                 onClick={handleAddItem}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2"
@@ -135,28 +163,47 @@ export default function DailyChecklist() {
                       )}
                     </button>
 
-                    {/* Title */}
+                    {/* Title and Hours */}
                     {editingId === item.id ? (
-                      <input
-                        type="text"
-                        value={editingTitle}
-                        onChange={(e) => setEditingTitle(e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, item.id)}
-                        onBlur={() => handleSaveEdit(item.id)}
-                        autoFocus
-                        className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 text-gray-900 dark:text-gray-100"
-                      />
+                      <>
+                        <input
+                          type="text"
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(e, item.id)}
+                          onBlur={() => handleSaveEdit(item.id)}
+                          autoFocus
+                          className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 text-gray-900 dark:text-gray-100"
+                        />
+                        <input
+                          type="number"
+                          value={editingHours}
+                          onChange={(e) => setEditingHours(e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(e, item.id)}
+                          onBlur={() => handleSaveEdit(item.id)}
+                          min="0"
+                          step="0.5"
+                          className="w-20 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 text-gray-900 dark:text-gray-100"
+                        />
+                      </>
                     ) : (
-                      <div
-                        onClick={() => handleStartEdit(item.id, item.title)}
-                        className={`flex-1 text-lg cursor-pointer ${
-                          item.completed
-                            ? 'line-through text-gray-400 dark:text-gray-500'
-                            : 'text-gray-900 dark:text-gray-100'
-                        }`}
-                      >
-                        {item.title}
-                      </div>
+                      <>
+                        <div
+                          onClick={() => handleStartEdit(item.id, item.title, item.hours)}
+                          className={`flex-1 text-lg cursor-pointer ${
+                            item.completed
+                              ? 'line-through text-gray-400 dark:text-gray-500'
+                              : 'text-gray-900 dark:text-gray-100'
+                          }`}
+                        >
+                          {item.title}
+                        </div>
+                        {item.hours > 0 && (
+                          <div className={`px-2 py-1 rounded-full text-sm font-medium ${getHoursColor(item.hours)}`}>
+                            {item.hours}h
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {/* Delete button */}

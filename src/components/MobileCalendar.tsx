@@ -53,6 +53,21 @@ function DayDetailModal({
     }
   };
 
+  const getItemStatusColors = (status: string) => {
+    switch (status) {
+      case 'not_started':
+        return 'bg-gray-100 border-gray-200 dark:bg-gray-800 dark:border-gray-700';
+      case 'in_progress':
+        return 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800';
+      case 'not_submitted':
+        return 'bg-purple-50 border-purple-200 dark:bg-purple-900/20 dark:border-purple-800';
+      case 'completed':
+        return 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800';
+      default:
+        return 'bg-gray-100 border-gray-200 dark:bg-gray-800 dark:border-gray-700';
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center md:justify-center">
       <div className="bg-white dark:bg-gray-800 w-full md:max-w-2xl md:rounded-t-2xl md:rounded-b-2xl rounded-t-2xl max-h-[80vh] flex flex-col">
@@ -87,7 +102,7 @@ function DayDetailModal({
                   <div
                     key={item.id}
                     onClick={() => onEditItem(item)}
-                    className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow cursor-pointer"
+                    className={`p-4 rounded-lg border hover:shadow-md transition-shadow cursor-pointer ${getItemStatusColors(item.status)}`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="font-semibold text-gray-900 dark:text-gray-100">
@@ -98,23 +113,23 @@ function DayDetailModal({
                       </span>
                     </div>
                     {item.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
                         {item.description}
                       </p>
                     )}
-                    {itemClass && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">{itemClass.emoji}</span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {itemClass.name}
+                    <div className="flex items-center gap-2 flex-wrap mt-2">
+                      {itemClass && (
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-md text-xs text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                          {itemClass.emoji && <span>{itemClass.emoji}</span>}
+                          <span>{itemClass.name}</span>
                         </span>
-                      </div>
-                    )}
-                    {(item.type === 'task' || item.type === 'event') && (
-                      <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        {item.hours} hours
-                      </div>
-                    )}
+                      )}
+                      {(item.type === 'task' || item.type === 'event') && (
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-medium">
+                          {item.hours}h
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })}

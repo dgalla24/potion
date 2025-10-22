@@ -551,9 +551,15 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
                   <button
                     type="button"
                     onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                    className="flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:bg-gray-50/70 dark:hover:bg-gray-800/70 px-2 py-1.5 rounded-md transition-all duration-150 font-medium"
+                    className="flex items-center gap-2 hover:bg-gray-50/70 dark:hover:bg-gray-800/70 px-2 py-1.5 rounded-md transition-all duration-150 font-medium"
                   >
-                    <span>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium ${
+                      status === 'not_started' ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' :
+                      status === 'in_progress' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                      status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                      status === 'not_submitted' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
+                      'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                    }`}>
                       {status === 'not_started' && 'Not Started'}
                       {status === 'in_progress' && 'In Progress'}
                       {status === 'completed' && 'Completed'}
@@ -570,9 +576,11 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
                           setStatus('not_started');
                           setShowStatusDropdown(false);
                         }}
-                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
                       >
-                        Not Started
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                          Not Started
+                        </span>
                       </button>
                       <button
                         type="button"
@@ -580,9 +588,11 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
                           setStatus('in_progress');
                           setShowStatusDropdown(false);
                         }}
-                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
                       >
-                        In Progress
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                          In Progress
+                        </span>
                       </button>
                       <button
                         type="button"
@@ -590,9 +600,11 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
                           setStatus('completed');
                           setShowStatusDropdown(false);
                         }}
-                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
                       >
-                        Completed
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                          Completed
+                        </span>
                       </button>
                       {itemType === 'assignment' && (
                         <button
@@ -601,9 +613,11 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
                             setStatus('not_submitted');
                             setShowStatusDropdown(false);
                           }}
-                          className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-gray-100 text-sm"
+                          className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
                         >
-                          Not Submitted
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                            Not Submitted
+                          </span>
                         </button>
                       )}
                     </div>

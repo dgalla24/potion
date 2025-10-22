@@ -444,9 +444,9 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     const completedTasks = assignmentTasks.filter(task => task.status === 'completed');
     const notStartedTasks = assignmentTasks.filter(task => task.status === 'not_started');
 
-    // All tasks are completed → Completed
+    // All tasks are completed → Not Submitted
     if (completedTasks.length === assignmentTasks.length) {
-      return 'completed';
+      return 'not_submitted';
     }
 
     // All tasks are not started → Not Started

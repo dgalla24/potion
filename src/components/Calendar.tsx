@@ -7,6 +7,7 @@ import { formatShortDate, getCalendarDays, isSameDay, isToday } from '@/lib/util
 import { Assignment, Task, Exam, Event } from '@/types';
 import ItemModal from './ItemModal';
 import ContextMenu from './ContextMenu';
+import DailyTasksPopout from './DailyTasksPopout';
 
 interface CalendarDayProps {
   date: Date;
@@ -22,12 +23,15 @@ interface CalendarDayProps {
   onAddItem: (date: Date) => void;
   onEditItem: (item: Assignment | Task | Exam | Event) => void;
   onDeleteItem: (item: Assignment | Task | Exam | Event) => void;
+  onCopyItem: (item: Assignment | Task | Exam | Event) => void;
+  onPasteItem: (date: Date) => void;
   getClassById: (id: string) => import('@/types').Class | undefined;
   onDropItem: (date: Date, itemData: any) => void;
   highlightedAssignmentId: string | null;
   highlightedExamId: string | null;
   onHighlightAssignment: (assignmentId: string | null) => void;
   onHighlightExam: (examId: string | null) => void;
+  hasClipboardItem: boolean;
 }
 
 function CalendarDay({
@@ -44,17 +48,21 @@ function CalendarDay({
   onAddItem,
   onEditItem,
   onDeleteItem,
+  onCopyItem,
+  onPasteItem,
   getClassById,
   onDropItem,
   highlightedAssignmentId,
   highlightedExamId,
   onHighlightAssignment,
-  onHighlightExam
+  onHighlightExam,
+  hasClipboardItem
 }: CalendarDayProps) {
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    item: Assignment | Task | Exam | Event;
+    item?: Assignment | Task | Exam | Event;
+    isDay?: boolean;
   } | null>(null);
 
   const isCurrentDay = isToday(date);
@@ -71,6 +79,17 @@ function CalendarDay({
       y: e.clientY,
       item,
     });
+  };
+
+  const handleDayRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (hasClipboardItem) {
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        isDay: true,
+      });
+    }
   };
 
   const handleItemClick = (e: React.MouseEvent, item: Assignment | Task | Exam | Event) => {
@@ -172,6 +191,7 @@ function CalendarDay({
             ? 'bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-l-blue-400'
             : 'hover:bg-gray-50/50 dark:hover:bg-gray-800/50'
         }`}
+        onContextMenu={handleDayRightClick}
         onDragOver={(e) => {
           e.preventDefault();
           e.dataTransfer.dropEffect = 'move';
@@ -415,7 +435,9 @@ function CalendarDay({
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          onDelete={() => onDeleteItem(contextMenu.item)}
+          onDelete={contextMenu.item ? () => onDeleteItem(contextMenu.item!) : undefined}
+          onCopy={contextMenu.item ? () => onCopyItem(contextMenu.item!) : undefined}
+          onPaste={contextMenu.isDay ? () => onPasteItem(date) : undefined}
           onClose={() => setContextMenu(null)}
         />
       )}
@@ -440,6 +462,10 @@ export default function Calendar() {
     updateTask,
     updateExam,
     updateEvent,
+    addAssignment,
+    addTask,
+    addExam,
+    addEvent,
     getClassById,
     toggleClassFilter
   } = usePotion();
@@ -450,6 +476,8 @@ export default function Calendar() {
   const [editingItem, setEditingItem] = useState<Assignment | Task | Exam | Event | null>(null);
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState<string | null>(null);
   const [highlightedExamId, setHighlightedExamId] = useState<string | null>(null);
+  const [showDailyPopout, setShowDailyPopout] = useState(false);
+  const [clipboardItem, setClipboardItem] = useState<Assignment | Task | Exam | Event | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const days = getCalendarDays(currentDate);
@@ -504,6 +532,39 @@ export default function Calendar() {
     }
   };
 
+  const handleCopyItem = (item: Assignment | Task | Exam | Event) => {
+    setClipboardItem(item);
+  };
+
+  const handlePasteItem = (date: Date) => {
+    if (!clipboardItem) return;
+
+    // Create a copy of the item with a new ID and updated date
+    const { id, createdAt, updatedAt, ...itemData } = clipboardItem;
+
+    if (clipboardItem.type === 'assignment') {
+      addAssignment({
+        ...itemData,
+        dueDate: date,
+      } as Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>);
+    } else if (clipboardItem.type === 'task') {
+      addTask({
+        ...itemData,
+        scheduledDate: date,
+      } as Omit<Task, 'id' | 'createdAt' | 'updatedAt'>);
+    } else if (clipboardItem.type === 'exam') {
+      addExam({
+        ...itemData,
+        dueDate: date,
+      } as Omit<Exam, 'id' | 'createdAt' | 'updatedAt'>);
+    } else if (clipboardItem.type === 'event') {
+      addEvent({
+        ...itemData,
+        scheduledDate: date,
+      } as Omit<Event, 'id' | 'createdAt' | 'updatedAt'>);
+    }
+  };
+
   const handleCloseModal = () => {
     setShowModal(false);
     setSelectedDate(null);
@@ -511,18 +572,35 @@ export default function Calendar() {
   };
 
   return (
-    <div className="p-6 min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-10">
-          <div className="flex items-center space-x-6">
-            <h1 className="text-4xl font-black tracking-tight">{monthYear}</h1>
-            <button
-              onClick={goToToday}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-105"
-            >
-              Today
-            </button>
-          </div>
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
+      {/* Sidebar */}
+      <DailyTasksPopout
+        isOpen={showDailyPopout}
+        onClose={() => setShowDailyPopout(false)}
+      />
+
+      {/* Main Calendar Content */}
+      <div className="flex-1 p-6 overflow-y-auto relative">
+        {/* Toggle Button */}
+        <button
+          onClick={() => setShowDailyPopout(!showDailyPopout)}
+          className="fixed left-0 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-r-lg shadow-lg z-50 transition-all duration-300"
+          style={{ left: showDailyPopout ? '384px' : '0px' }}
+        >
+          <ChevronRight className={`w-5 h-5 transition-transform duration-300 ${showDailyPopout ? 'rotate-180' : ''}`} />
+        </button>
+
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-10">
+            <div className="flex items-center space-x-6">
+              <h1 className="text-4xl font-black tracking-tight">{monthYear}</h1>
+              <button
+                onClick={goToToday}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-105"
+              >
+                Today
+              </button>
+            </div>
 
           <div className="flex items-center space-x-4">
             <div className="relative">
@@ -670,12 +748,15 @@ export default function Calendar() {
                 onAddItem={handleAddItem}
                 onEditItem={handleEditItem}
                 onDeleteItem={handleDeleteItem}
+                onCopyItem={handleCopyItem}
+                onPasteItem={handlePasteItem}
                 getClassById={getClassById}
                 onDropItem={handleDropItem}
                 highlightedAssignmentId={highlightedAssignmentId}
                 highlightedExamId={highlightedExamId}
                 onHighlightAssignment={setHighlightedAssignmentId}
                 onHighlightExam={setHighlightedExamId}
+                hasClipboardItem={clipboardItem !== null}
               />
             ))}
           </div>
@@ -691,6 +772,7 @@ export default function Calendar() {
             isNew={!editingItem}
           />
         )}
+        </div>
       </div>
     </div>
   );

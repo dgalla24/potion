@@ -97,6 +97,7 @@ export interface DailyItem {
   id: string;
   title: string;
   completed: boolean;
+  hours: number;
   lastResetDate: string; // ISO date string to track when status was last reset
   createdAt: Date;
   updatedAt: Date;
