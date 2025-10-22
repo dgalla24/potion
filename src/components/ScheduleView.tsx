@@ -216,6 +216,11 @@ export default function ScheduleView() {
     setShowModal(true);
   };
 
+  // Calculate startTime from selectedTime (minutes from midnight)
+  const getStartTimeFromDate = (date: Date): number => {
+    return date.getHours() * 60 + date.getMinutes();
+  };
+
   // Handle drop from sidebar to schedule grid
   const handleDropOnSchedule = async (e: React.DragEvent, hour: number, minute: number) => {
     e.preventDefault();
@@ -597,6 +602,7 @@ export default function ScheduleView() {
         <ItemModal
           item={editingItem || undefined}
           defaultDate={selectedTime || currentDate}
+          defaultStartTime={selectedTime ? getStartTimeFromDate(selectedTime) : undefined}
           onClose={() => {
             setShowModal(false);
             setEditingItem(null);

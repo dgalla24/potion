@@ -11,6 +11,7 @@ interface ItemModalProps {
   defaultDate?: Date;
   defaultAssignmentId?: string;
   defaultExamId?: string;
+  defaultStartTime?: number; // minutes from midnight for schedule view
   onClose: () => void;
   isNew?: boolean;
 }
@@ -18,7 +19,7 @@ interface ItemModalProps {
 type ItemType = 'task' | 'assignment' | 'exam' | 'event';
 type ItemStatus = 'not_started' | 'in_progress' | 'completed' | 'not_submitted';
 
-export default function ItemModal({ item, defaultDate, defaultAssignmentId, defaultExamId, onClose, isNew = false }: ItemModalProps) {
+export default function ItemModal({ item, defaultDate, defaultAssignmentId, defaultExamId, defaultStartTime, onClose, isNew = false }: ItemModalProps) {
   const {
     addAssignment,
     updateAssignment,
@@ -91,6 +92,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
             assignmentId: assignmentId || undefined,
             examId: examId || undefined,
             status: status as any,
+            startTime: defaultStartTime,
           });
           setCurrentItem(newTask);
         } else if (itemType === 'event') {
@@ -103,6 +105,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
             assignmentId: assignmentId || undefined,
             examId: examId || undefined,
             status: status as any,
+            startTime: defaultStartTime,
           });
           setCurrentItem(newEvent);
         }
@@ -184,6 +187,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
             assignmentId: assignmentId || undefined,
             examId: examId || undefined,
             status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
+            startTime: currentItem && 'startTime' in currentItem ? currentItem.startTime : defaultStartTime,
           });
           setCurrentItem(newTask);
         } else if (itemType === 'event') {
@@ -198,6 +202,7 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
             assignmentId: assignmentId || undefined,
             examId: examId || undefined,
             status: (status === 'not_started' || status === 'in_progress' || status === 'completed') ? status as any : 'not_started',
+            startTime: currentItem && 'startTime' in currentItem ? currentItem.startTime : defaultStartTime,
           });
           setCurrentItem(newEvent);
         }
