@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Potion - Your daily planner that adapts to how you work">
+    <title>Potion - Smart Daily Planning</title>
+
+    <!-- Google Fonts (optional - remove if you prefer system fonts) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Hero Section -->
+    <header class="hero">
+        <div class="container">
+            <h1 class="hero-title">Your Daily Planner That Actually Works</h1>
+            <p class="hero-subtitle">Potion combines your calendar, tasks, and schedule in one beautiful view. Plan your day in seconds, not minutes.</p>
+
+            <!-- Hero Image -->
+            <div class="hero-image">
+                <img src="assets/hero.png" alt="Potion app interface showing calendar and task list" loading="lazy">
+            </div>
+
+            <!-- Primary CTAs -->
+            <div class="cta-buttons">
+                <!-- waitlist link: Google Form -->
+                <a class="btn btn-primary" href="https://forms.gle/KiS6wvq6jPT9aZvdA" target="_blank" rel="noopener">Join waitlist</a>
+                <!-- feedback link: Google Form -->
+                <a id="feedbackBtn" class="btn btn-secondary" href="https://forms.gle/KiS6wvq6jPT9aZvdA" target="_blank" rel="noopener">Give feedback</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Demo Video Section -->
+    <section class="demo-section">
+        <div class="container">
+            <h2>See Potion in Action</h2>
+            <p class="section-subtitle">Watch how easy it is to plan your perfect day (46 seconds)</p>
+
+            <!-- Video thumbnail that opens modal -->
+            <div class="video-thumbnail" onclick="openVideoModal()">
+                <img src="assets/screenshot1.png" alt="Potion demo video thumbnail" loading="lazy">
+                <div class="play-button" aria-label="Play demo video">
+                    <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="36" cy="36" r="36" fill="rgba(255,255,255,0.9)"/>
+                        <path d="M28 24L50 36L28 48V24Z" fill="#333"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section class="benefits">
+        <div class="container">
+            <h2>Why People Love Potion</h2>
+
+            <div class="benefits-grid">
+                <div class="benefit-card">
+                    <div class="benefit-icon">📅</div>
+                    <h3>All-in-One View</h3>
+                    <p>See your calendar, tasks, and schedule side-by-side. No more switching between apps or losing context.</p>
+                </div>
+
+                <div class="benefit-card">
+                    <div class="benefit-icon">⚡</div>
+                    <h3>Lightning Fast</h3>
+                    <p>Drag-and-drop to schedule tasks. Click any time slot to add events. Plan your entire day in under a minute.</p>
+                </div>
+
+                <div class="benefit-card">
+                    <div class="benefit-icon">🎯</div>
+                    <h3>Focus on What Matters</h3>
+                    <p>Clean, minimal interface that gets out of your way. No overwhelming features, just what you need to stay organized.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="how-it-works">
+        <div class="container">
+            <h2>How It Works</h2>
+
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Add Your Tasks</h3>
+                    <p>Quickly jot down everything you need to do. Potion captures it all in your daily list.</p>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Schedule Your Day</h3>
+                    <p>Drag tasks onto your calendar or click time slots to add events. See your entire day take shape.</p>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Get It Done</h3>
+                    <p>Follow your plan and check off tasks as you go. Potion keeps you on track without getting in the way.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Waitlist Section -->
+    <section class="waitlist" id="waitlist">
+        <div class="container">
+            <h2>Join the Waitlist</h2>
+            <p class="section-subtitle">Be the first to know when Potion launches. We'll send you early access.</p>
+
+            <!-- Replace inline form with this button linking to Google Form -->
+            <!-- waitlist link: Google Form -->
+            <a class="btn btn-primary" href="https://forms.gle/KiS6wvq6jPT9aZvdA" target="_blank" rel="noopener">Join waitlist</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Potion. Built with care.</p>
+            <div class="footer-links">
+                <!-- feedback link: Google Form -->
+                <a href="https://forms.gle/KiS6wvq6jPT9aZvdA" target="_blank" rel="noopener">Give Feedback</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Video Modal -->
+    <div id="video-modal" class="modal" role="dialog" aria-labelledby="modal-title" aria-modal="true">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeVideoModal()" aria-label="Close video">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            <h2 id="modal-title" class="sr-only">Potion Demo Video</h2>
+            <video id="demo-video" controls>
+                <source src="assets/demo.mp4" type="video/mp4">
+                Your browser doesn't support video playback. <a href="assets/demo.mp4">Download the demo video</a> instead.
+            </video>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

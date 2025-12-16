@@ -54,21 +54,125 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
     return 'assignment';
   });
 
+  const [hours, setHours] = useState(() => {
+    if (item && 'hours' in item) {
+      return item.hours.toString();
+    }
+    return '1';
+  });
+
+  const [assignmentId, setAssignmentId] = useState(() => {
+    if (item && 'assignmentId' in item) {
+      return item.assignmentId || '';
+    }
+    return defaultAssignmentId || '';
+  });
+
+  const [examId, setExamId] = useState(() => {
+    if (item && 'examId' in item) {
+      return item.examId || '';
+    }
+    return defaultExamId || '';
+  });
+
+  const [status, setStatus] = useState<ItemStatus>(() => {
+    if (item) {
+      return item.status as ItemStatus;
+    }
+    return 'not_started';
+  });
+
+  const [planned, setPlanned] = useState(() => {
+    if (item && 'planned' in item) {
+      return item.planned;
+    }
+    return false;
+  });
+
+  const [title, setTitle] = useState(item?.title || 'Untitled');
+  const [description, setDescription] = useState(item?.description || '');
+  const [classId, setClassId] = useState<string>(() => {
+    if (item?.classId) return item.classId;
+    // If creating a task/event for a highlighted assignment/exam, inherit its class
+    if (defaultAssignmentId) {
+      const parentAssignment = assignments.find(a => a.id === defaultAssignmentId);
+      return parentAssignment?.classId || '';
+    }
+    if (defaultExamId) {
+      const parentExam = exams.find(e => e.id === defaultExamId);
+      return parentExam?.classId || '';
+    }
+    return '';
+  });
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    if (item) {
+      if ('dueDate' in item && item.dueDate != null) {
+        // Handle both string and Date formats
+        const dateValue = typeof item.dueDate === 'string' ? item.dueDate : item.dueDate.toISOString();
+        return dateValue.split('T')[0];
+      } else if ('scheduledDate' in item && item.scheduledDate != null) {
+        // Handle both string and Date formats
+        const dateValue = typeof item.scheduledDate === 'string' ? item.scheduledDate : item.scheduledDate.toISOString();
+        return dateValue.split('T')[0];
+      }
+    }
+    if (defaultDate) {
+      return defaultDate.toISOString().split('T')[0];
+    }
+    return new Date().toISOString().split('T')[0];
+  });
+
+  const [showClassDropdown, setShowClassDropdown] = useState(false);
+  const [showAssignmentDropdown, setShowAssignmentDropdown] = useState(false);
+  const [showExamDropdown, setShowExamDropdown] = useState(false);
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [newClassName, setNewClassName] = useState('');
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    classId: string;
+  } | null>(null);
+
   // Create item immediately if it's new
   useEffect(() => {
+    console.log('=== Creation useEffect Running ===');
+    console.log('isNew:', isNew);
+    console.log('currentItem:', currentItem);
+    console.log('hasCreatedRef.current:', hasCreatedRef.current);
+    console.log('defaultStartTime:', defaultStartTime);
+    console.log('==================================');
     if (isNew && !currentItem && !hasCreatedRef.current) {
+      console.log('>>> CONDITIONS MET - Creating item...');
       hasCreatedRef.current = true;
       const [year, month, day] = selectedDate.split('-').map(Number);
       const dateValue = new Date(year, month - 1, day);
 
       const createItem = async () => {
+        // Get initial class ID
+        let initialClassId = '';
+        if (item?.classId) {
+          initialClassId = item.classId;
+        } else if (defaultAssignmentId) {
+          const parentAssignment = assignments.find(a => a.id === defaultAssignmentId);
+          initialClassId = parentAssignment?.classId || '';
+        } else if (defaultExamId) {
+          const parentExam = exams.find(e => e.id === defaultExamId);
+          initialClassId = parentExam?.classId || '';
+        }
+
+        const initialAssignmentId = item && 'assignmentId' in item ? (item.assignmentId || '') : (defaultAssignmentId || '');
+        const initialExamId = item && 'examId' in item ? (item.examId || '') : (defaultExamId || '');
+        const initialHours = item && 'hours' in item ? item.hours : 1;
+        const initialStatus = item ? item.status : 'not_started';
+
         if (itemType === 'assignment') {
           const newAssignment = await addAssignment({
             title: 'Untitled',
             description: '',
             dueDate: dateValue,
-            classId: classId || undefined,
-            status: status as any,
+            classId: initialClassId || undefined,
+            status: initialStatus as any,
             planned: false,
           });
           setCurrentItem(newAssignment);
@@ -77,43 +181,57 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
             title: 'Untitled',
             description: '',
             dueDate: dateValue,
-            classId: classId || undefined,
-            status: status as any,
+            classId: initialClassId || undefined,
+            status: initialStatus as any,
             planned: false,
           });
           setCurrentItem(newExam);
         } else if (itemType === 'task') {
-          const newTask = await addTask({
+          console.log('Creating task with defaultStartTime:', defaultStartTime);
+          const taskData: any = {
             title: 'Untitled',
             description: '',
             scheduledDate: dateValue,
-            hours: parseFloat(hours) || 1,
-            classId: classId || undefined,
-            assignmentId: assignmentId || undefined,
-            examId: examId || undefined,
-            status: status as any,
-            startTime: defaultStartTime,
-          });
+            hours: initialHours,
+            classId: initialClassId || undefined,
+            assignmentId: initialAssignmentId || undefined,
+            examId: initialExamId || undefined,
+            status: initialStatus as any,
+          };
+          // Only add startTime if it's defined (don't send undefined/null)
+          if (defaultStartTime !== undefined && defaultStartTime !== null) {
+            taskData.startTime = defaultStartTime;
+          }
+          console.log('Task data being sent:', taskData);
+          const newTask = await addTask(taskData);
+          console.log('Created task:', newTask);
           setCurrentItem(newTask);
         } else if (itemType === 'event') {
-          const newEvent = await addEvent({
+          console.log('Creating event with defaultStartTime:', defaultStartTime);
+          const eventData: any = {
             title: 'Untitled',
             description: '',
             scheduledDate: dateValue,
-            hours: parseFloat(hours) || 1,
-            classId: classId || undefined,
-            assignmentId: assignmentId || undefined,
-            examId: examId || undefined,
-            status: status as any,
-            startTime: defaultStartTime,
-          });
+            hours: initialHours,
+            classId: initialClassId || undefined,
+            assignmentId: initialAssignmentId || undefined,
+            examId: initialExamId || undefined,
+            status: initialStatus as any,
+          };
+          // Only add startTime if it's defined (don't send undefined/null)
+          if (defaultStartTime !== undefined && defaultStartTime !== null) {
+            eventData.startTime = defaultStartTime;
+          }
+          console.log('Event data being sent:', eventData);
+          const newEvent = await addEvent(eventData);
+          console.log('Created event:', newEvent);
           setCurrentItem(newEvent);
         }
       };
 
       createItem();
     }
-  }, []);
+  }, [isNew, currentItem, itemType, defaultStartTime, defaultAssignmentId, defaultExamId, item, assignments, exams, addAssignment, addExam, addTask, addEvent]);
 
   // Focus title on mount
   useEffect(() => {
@@ -217,86 +335,6 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
     }
   }, [itemType]);
 
-  const [title, setTitle] = useState(item?.title || 'Untitled');
-  const [description, setDescription] = useState(item?.description || '');
-  const [classId, setClassId] = useState<string>(() => {
-    if (item?.classId) return item.classId;
-    // If creating a task/event for a highlighted assignment/exam, inherit its class
-    if (defaultAssignmentId) {
-      const parentAssignment = assignments.find(a => a.id === defaultAssignmentId);
-      return parentAssignment?.classId || '';
-    }
-    if (defaultExamId) {
-      const parentExam = exams.find(e => e.id === defaultExamId);
-      return parentExam?.classId || '';
-    }
-    return '';
-  });
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    if (item) {
-      if ('dueDate' in item && item.dueDate != null) {
-        // Handle both string and Date formats
-        const dateValue = typeof item.dueDate === 'string' ? item.dueDate : item.dueDate.toISOString();
-        return dateValue.split('T')[0];
-      } else if ('scheduledDate' in item && item.scheduledDate != null) {
-        // Handle both string and Date formats
-        const dateValue = typeof item.scheduledDate === 'string' ? item.scheduledDate : item.scheduledDate.toISOString();
-        return dateValue.split('T')[0];
-      }
-    }
-    if (defaultDate) {
-      return defaultDate.toISOString().split('T')[0];
-    }
-    return new Date().toISOString().split('T')[0];
-  });
-
-  const [hours, setHours] = useState(() => {
-    if (item && 'hours' in item) {
-      return item.hours.toString();
-    }
-    return '1';
-  });
-
-  const [assignmentId, setAssignmentId] = useState(() => {
-    if (item && 'assignmentId' in item) {
-      return item.assignmentId || '';
-    }
-    return defaultAssignmentId || '';
-  });
-
-  const [examId, setExamId] = useState(() => {
-    if (item && 'examId' in item) {
-      return item.examId || '';
-    }
-    return defaultExamId || '';
-  });
-
-  const [status, setStatus] = useState<ItemStatus>(() => {
-    if (item) {
-      return item.status as ItemStatus;
-    }
-    return 'not_started';
-  });
-
-  const [planned, setPlanned] = useState(() => {
-    if (item && 'planned' in item) {
-      return item.planned;
-    }
-    return false;
-  });
-
-  const [showClassDropdown, setShowClassDropdown] = useState(false);
-  const [showAssignmentDropdown, setShowAssignmentDropdown] = useState(false);
-  const [showExamDropdown, setShowExamDropdown] = useState(false);
-  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [newClassName, setNewClassName] = useState('');
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    classId: string;
-  } | null>(null);
-
   // Auto-save function
   const autoSave = async () => {
     // Don't auto-save during type conversion
@@ -372,6 +410,25 @@ export default function ItemModal({ item, defaultDate, defaultAssignmentId, defa
   const handleClose = () => {
     autoSave();
     onClose();
+  };
+
+  const handleRemoveFromSchedule = async () => {
+    if (!currentItem || !item) return;
+
+    // Only tasks and events can be removed from schedule
+    if (itemType === 'task' || itemType === 'event') {
+      const updates: any = {
+        startTime: null, // Remove the scheduled time
+      };
+
+      if (itemType === 'task') {
+        await updateTask(currentItem.id, updates);
+      } else if (itemType === 'event') {
+        await updateEvent(currentItem.id, updates);
+      }
+
+      onClose();
+    }
   };
 
   // Handle background click

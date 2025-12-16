@@ -56,9 +56,10 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
                 <span>Calendar</span>
               </button>
 
+              {/* Schedule tab hidden - keeping code for future use */}
               <button
                 onClick={handleScheduleClick}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                className={`hidden flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   currentView === 'schedule'
                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
                     : 'text-muted surface-hover'
@@ -158,9 +159,10 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
             <span className="text-xs mt-1">Calendar</span>
           </button>
 
+          {/* Schedule tab hidden - keeping code for future use */}
           <button
             onClick={handleScheduleClick}
-            className={`flex flex-col items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+            className={`hidden flex flex-col items-center px-3 py-2 rounded-lg transition-all duration-200 ${
               currentView === 'schedule'
                 ? 'text-blue-600 dark:text-blue-400'
                 : 'text-muted'

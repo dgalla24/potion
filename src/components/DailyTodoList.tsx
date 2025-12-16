@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Check, Plus } from 'lucide-react';
 import { usePotion } from '@/hooks/usePotion';
 import { formatDate } from '@/lib/utils';
-import { Task, TaskStatus } from '@/types';
+import { Task, TaskStatus, Event, EventStatus, Assignment, AssignmentStatus } from '@/types';
 import ItemModal from './ItemModal';
 import ContextMenu from './ContextMenu';
 
@@ -243,26 +243,311 @@ function TaskItem({ task, onStatusChange, onEdit, onDelete, onUpdateDescription,
   );
 }
 
+interface EventItemProps {
+  event: Event;
+  onStatusChange: (id: string, status: EventStatus) => void;
+  onEdit: (event: Event) => void;
+  onDelete: (event: Event) => void;
+  onUpdateDescription: (id: string, description: string) => void;
+  getClassById: (id: string) => import('@/types').Class | undefined;
+}
+
+function EventItem({ event, onStatusChange, onEdit, onDelete, onUpdateDescription, getClassById }: EventItemProps) {
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const getStatusIcon = (status: EventStatus) => {
+    switch (status) {
+      case 'completed':
+        return <Check className="w-4 h-4 text-green-600 dark:text-green-400" />;
+      case 'in_progress':
+        return <div className="w-4 h-4 rounded-full bg-blue-500 dark:bg-blue-400" />;
+      default:
+        return <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />;
+    }
+  };
+
+  const getNextStatus = (currentStatus: EventStatus): EventStatus => {
+    switch (currentStatus) {
+      case 'not_started':
+        return 'in_progress';
+      case 'in_progress':
+        return 'completed';
+      case 'completed':
+        return 'not_started';
+      default:
+        return 'not_started';
+    }
+  };
+
+  const getHoursColor = (hours: number) => {
+    if (hours <= 1) return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+    if (hours <= 3) return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+    if (hours <= 5) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+    if (hours <= 8) return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+    return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+  };
+
+  const handleRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+    });
+  };
+
+  const handleEventClick = (e: React.MouseEvent) => {
+    onEdit(event);
+  };
+
+  return (
+    <>
+      <div
+        className={`flex items-center space-x-3 p-4 rounded-xl border transition-all duration-200 hover:shadow-sm ${
+          event.status === 'completed'
+            ? 'bg-purple-50 border-purple-200 dark:bg-purple-900/20 dark:border-purple-800'
+            : 'surface border-gray-200 dark:border-gray-700 hover:scale-[1.01]'
+        }`}
+        onContextMenu={handleRightClick}
+      >
+        <button
+          onClick={() => onStatusChange(event.id, getNextStatus(event.status))}
+          className="flex-shrink-0 hover:scale-110 transition-transform"
+        >
+          {getStatusIcon(event.status)}
+        </button>
+
+        <div
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={handleEventClick}
+        >
+          <div className="flex items-center gap-2">
+            <div className={`font-semibold text-sm ${
+              event.status === 'completed' ? 'line-through text-muted' : ''
+            }`}>
+              {event.title}
+            </div>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+              Event
+            </span>
+          </div>
+          {event.description && (
+            <div className="text-xs text-muted mt-1">
+              {renderDescriptionWithCheckboxes(
+                event.description,
+                (newDescription) => onUpdateDescription(event.id, newDescription)
+              )}
+            </div>
+          )}
+          {event.classId && (
+            <div className="flex items-center gap-1 mt-2">
+              {(() => {
+                const eventClass = getClassById(event.classId);
+                return eventClass ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 text-xs font-medium">
+                    <span>{eventClass.emoji}</span>
+                    <span>{eventClass.name}</span>
+                  </span>
+                ) : null;
+              })()}
+            </div>
+          )}
+        </div>
+
+        <div className={`px-2 py-1 rounded-full text-xs font-medium ${getHoursColor(event.hours)}`}>
+          {event.hours}h
+        </div>
+      </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onDelete={() => onDelete(event)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+    </>
+  );
+}
+
+interface AssignmentItemProps {
+  assignment: Assignment;
+  onStatusChange: (id: string, status: AssignmentStatus) => void;
+  onEdit: (assignment: Assignment) => void;
+  onDelete: (assignment: Assignment) => void;
+  getClassById: (id: string) => import('@/types').Class | undefined;
+}
+
+function AssignmentItem({ assignment, onStatusChange, onEdit, onDelete, getClassById }: AssignmentItemProps) {
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const getStatusIcon = (status: AssignmentStatus) => {
+    switch (status) {
+      case 'completed':
+      case 'not_submitted':
+        return <Check className="w-4 h-4 text-green-600 dark:text-green-400" />;
+      case 'in_progress':
+        return <div className="w-4 h-4 rounded-full bg-blue-500 dark:bg-blue-400" />;
+      default:
+        return <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />;
+    }
+  };
+
+  const handleRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+    });
+  };
+
+  const handleAssignmentClick = (e: React.MouseEvent) => {
+    onEdit(assignment);
+  };
+
+  const getStatusDisplay = (status: AssignmentStatus) => {
+    switch (status) {
+      case 'not_started':
+        return 'Not Started';
+      case 'in_progress':
+        return 'In Progress';
+      case 'not_submitted':
+        return 'Not Submitted';
+      case 'completed':
+        return 'Completed';
+      default:
+        return status;
+    }
+  };
+
+  return (
+    <>
+      <div
+        className={`flex items-center space-x-3 p-4 rounded-xl border transition-all duration-200 hover:shadow-sm ${
+          assignment.status === 'completed' || assignment.status === 'not_submitted'
+            ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+            : 'surface border-gray-200 dark:border-gray-700 hover:scale-[1.01]'
+        }`}
+        onContextMenu={handleRightClick}
+      >
+        <button
+          onClick={handleAssignmentClick}
+          className="flex-shrink-0 hover:scale-110 transition-transform"
+        >
+          {getStatusIcon(assignment.status)}
+        </button>
+
+        <div
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={handleAssignmentClick}
+        >
+          <div className="flex items-center gap-2">
+            <div className={`font-semibold text-sm ${
+              assignment.status === 'completed' || assignment.status === 'not_submitted' ? 'line-through text-muted' : ''
+            }`}>
+              {assignment.title}
+            </div>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              Assignment
+            </span>
+          </div>
+          {assignment.description && (
+            <div className="text-xs text-muted mt-1 whitespace-pre-wrap">
+              {assignment.description}
+            </div>
+          )}
+          {assignment.classId && (
+            <div className="flex items-center gap-1 mt-2">
+              {(() => {
+                const assignmentClass = getClassById(assignment.classId);
+                return assignmentClass ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 text-xs font-medium">
+                    <span>{assignmentClass.emoji}</span>
+                    <span>{assignmentClass.name}</span>
+                  </span>
+                ) : null;
+              })()}
+            </div>
+          )}
+        </div>
+
+        <div className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+          {getStatusDisplay(assignment.status)}
+        </div>
+      </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onDelete={() => onDelete(assignment)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+    </>
+  );
+}
+
 export default function DailyTodoList() {
-  const { getTodayTasks, updateTask, deleteTask, getClassById } = usePotion();
+  const { getTodayTasks, getTodayEvents, getTodayAssignments, updateTask, deleteTask, updateEvent, deleteEvent, updateAssignment, deleteAssignment, getClassById } = usePotion();
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
 
   const todayTasks = getTodayTasks();
-  const totalHours = todayTasks.reduce((sum, task) => sum + task.hours, 0);
-  const completedTasks = todayTasks.filter(task => task.status === 'completed').length;
+  const todayEvents = getTodayEvents();
+  const todayAssignments = getTodayAssignments();
 
-  const handleStatusChange = (id: string, status: TaskStatus) => {
+  const totalHours = todayTasks.reduce((sum, task) => sum + task.hours, 0) +
+                     todayEvents.reduce((sum, event) => sum + event.hours, 0);
+  const completedTasks = todayTasks.filter(task => task.status === 'completed').length;
+  const completedEvents = todayEvents.filter(event => event.status === 'completed').length;
+  const completedAssignments = todayAssignments.filter(assignment => assignment.status === 'completed' || assignment.status === 'not_submitted').length;
+  const totalItems = todayTasks.length + todayEvents.length + todayAssignments.length;
+  const totalCompleted = completedTasks + completedEvents + completedAssignments;
+
+  const handleTaskStatusChange = (id: string, status: TaskStatus) => {
     updateTask(id, { status });
+  };
+
+  const handleEventStatusChange = (id: string, status: EventStatus) => {
+    updateEvent(id, { status });
   };
 
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
+    setEditingEvent(null);
+    setEditingAssignment(null);
+    setShowModal(true);
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setEditingEvent(event);
+    setEditingTask(null);
+    setEditingAssignment(null);
+    setShowModal(true);
+  };
+
+  const handleEditAssignment = (assignment: Assignment) => {
+    setEditingAssignment(assignment);
+    setEditingTask(null);
+    setEditingEvent(null);
     setShowModal(true);
   };
 
   const handleAddTask = () => {
     setEditingTask(null);
+    setEditingEvent(null);
+    setEditingAssignment(null);
     setShowModal(true);
   };
 
@@ -270,13 +555,27 @@ export default function DailyTodoList() {
     deleteTask(task.id);
   };
 
-  const handleUpdateDescription = (id: string, description: string) => {
+  const handleDeleteEvent = (event: Event) => {
+    deleteEvent(event.id);
+  };
+
+  const handleDeleteAssignment = (assignment: Assignment) => {
+    deleteAssignment(assignment.id);
+  };
+
+  const handleUpdateTaskDescription = (id: string, description: string) => {
     updateTask(id, { description });
+  };
+
+  const handleUpdateEventDescription = (id: string, description: string) => {
+    updateEvent(id, { description });
   };
 
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingTask(null);
+    setEditingEvent(null);
+    setEditingAssignment(null);
   };
 
   const today = formatDate(new Date());
@@ -292,36 +591,57 @@ export default function DailyTodoList() {
             Total Hours: {totalHours}h
           </div>
           <div className="status-pill bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-            {completedTasks}/{todayTasks.length} completed
+            {totalCompleted}/{totalItems} completed
           </div>
         </div>
 
       </div>
 
-      {todayTasks.length === 0 ? (
+      {totalItems === 0 ? (
         <div className="text-center py-16">
           <div className="text-muted mb-6">
             <Check className="w-20 h-20 mx-auto opacity-40" />
           </div>
-          <h3 className="text-xl font-semibold mb-3">No tasks for today</h3>
+          <h3 className="text-xl font-semibold mb-3">No items for today</h3>
           <p className="text-muted mb-6 text-lg">You&apos;re all caught up! Add some tasks to stay productive.</p>
           <button
             onClick={handleAddTask}
             className="btn btn-primary"
           >
-            Add Your First Task
+            Add Your First Item
           </button>
         </div>
       ) : (
         <div className="space-y-4">
+          {todayAssignments.map(assignment => (
+            <AssignmentItem
+              key={assignment.id}
+              assignment={assignment}
+              onStatusChange={() => {}}
+              onEdit={handleEditAssignment}
+              onDelete={handleDeleteAssignment}
+              getClassById={getClassById}
+            />
+          ))}
           {todayTasks.map(task => (
             <TaskItem
               key={task.id}
               task={task}
-              onStatusChange={handleStatusChange}
+              onStatusChange={handleTaskStatusChange}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
-              onUpdateDescription={handleUpdateDescription}
+              onUpdateDescription={handleUpdateTaskDescription}
+              getClassById={getClassById}
+            />
+          ))}
+          {todayEvents.map(event => (
+            <EventItem
+              key={event.id}
+              event={event}
+              onStatusChange={handleEventStatusChange}
+              onEdit={handleEditEvent}
+              onDelete={handleDeleteEvent}
+              onUpdateDescription={handleUpdateEventDescription}
               getClassById={getClassById}
             />
           ))}
@@ -336,20 +656,20 @@ export default function DailyTodoList() {
         </div>
       )}
 
-      {completedTasks === todayTasks.length && todayTasks.length > 0 && (
+      {totalCompleted === totalItems && totalItems > 0 && (
         <div className="mt-8 text-center p-6 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
           <div className="text-3xl mb-3">🎉</div>
-          <h3 className="font-semibold text-green-800 dark:text-green-300 text-lg">All tasks completed!</h3>
+          <h3 className="font-semibold text-green-800 dark:text-green-300 text-lg">All items completed!</h3>
           <p className="text-green-600 dark:text-green-400 text-sm mt-1">Great job finishing everything today.</p>
         </div>
       )}
 
       {showModal && (
         <ItemModal
-          item={editingTask || undefined}
+          item={editingTask || editingEvent || editingAssignment || undefined}
           defaultDate={new Date()}
           onClose={handleCloseModal}
-          isNew={!editingTask}
+          isNew={!editingTask && !editingEvent && !editingAssignment}
         />
       )}
     </div>

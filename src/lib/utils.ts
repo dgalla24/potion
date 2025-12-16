@@ -20,9 +20,32 @@ export function formatShortDate(date: Date): string {
   });
 }
 
+// Get the current "day" considering 4 AM as the cutoff
+// If current time is before 4 AM, return yesterday's date
+export function getCurrentDay(): Date {
+  const now = new Date();
+  const currentHour = now.getHours();
+
+  // If it's before 4 AM, subtract one day
+  if (currentHour < 4) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    return yesterday;
+  }
+
+  // Otherwise, return today
+  now.setHours(0, 0, 0, 0);
+  return now;
+}
+
+// Get ISO date string for the current "day" (considering 4 AM cutoff)
+export function getCurrentDayString(): string {
+  return getCurrentDay().toISOString().split('T')[0];
+}
+
 export function isToday(date: Date): boolean {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = getCurrentDay();
   const checkDate = new Date(date);
   checkDate.setHours(0, 0, 0, 0);
   return today.getTime() === checkDate.getTime();
@@ -82,16 +105,25 @@ export function parseLocalDate(dateInput: string | Date): Date {
 export function getCalendarDays(date: Date): Date[] {
   const year = date.getFullYear();
   const month = date.getMonth();
+  const day = date.getDate();
 
-  // Get the first day of the month
-  const firstDayOfMonth = new Date(year, month, 1);
+  // Determine starting point based on whether we're showing a specific month or current week
+  let startingDate: Date;
 
-  // Get the day of the week for the first day (0 = Sunday, 1 = Monday, etc.)
-  const startDayOfWeek = firstDayOfMonth.getDay();
+  // If the date is the 1st of the month, use traditional month view
+  if (day === 1) {
+    startingDate = new Date(year, month, 1);
+  } else {
+    // Otherwise, start from the current date (for initial "current week" view)
+    startingDate = new Date(date);
+  }
 
-  // Calculate the first day to show on the calendar (start of the week containing the first day)
-  const firstCalendarDay = new Date(firstDayOfMonth);
-  firstCalendarDay.setDate(1 - startDayOfWeek);
+  // Get the day of the week for the starting date (0 = Sunday, 1 = Monday, etc.)
+  const startDayOfWeek = startingDate.getDay();
+
+  // Calculate the Sunday of the week containing the starting date
+  const firstCalendarDay = new Date(startingDate);
+  firstCalendarDay.setDate(startingDate.getDate() - startDayOfWeek);
 
   // Generate 6 weeks (42 days) to ensure we always show full weeks
   const days: Date[] = [];

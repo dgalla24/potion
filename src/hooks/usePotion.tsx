@@ -1,9 +1,9 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Assignment, Task, Class, CalendarFilters, AssignmentStatus, Exam, Event, ExamStatus, TaskStatus, EventStatus, DailyItem } from '@/types';
+import { Assignment, Task, Class, CalendarFilters, AssignmentStatus, Exam, Event, ExamStatus, TaskStatus, EventStatus, DailyItem, DailyTaskInstance, DailyStatus } from '@/types';
 import { supabaseStorage as storage } from '@/lib/supabase-storage';
-import { parseLocalDate } from '@/lib/utils';
+import { parseLocalDate, getCurrentDay, getCurrentDayString } from '@/lib/utils';
 import { useAuth } from './useAuth';
 
 interface PotionContextType {
@@ -13,6 +13,7 @@ interface PotionContextType {
   events: Event[];
   classes: Class[];
   dailyItems: DailyItem[];
+  dailyTaskInstances: DailyTaskInstance[];
   filters: CalendarFilters;
   addAssignment: (assignment: Omit<Assignment, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Promise<Assignment>;
   updateAssignment: (id: string, updates: Partial<Omit<Assignment, 'id' | 'createdAt'>>) => Promise<void>;
@@ -32,9 +33,13 @@ interface PotionContextType {
   addDailyItem: (item: Omit<DailyItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<DailyItem>;
   updateDailyItem: (id: string, updates: Partial<Omit<DailyItem, 'id' | 'createdAt'>>) => Promise<void>;
   deleteDailyItem: (id: string) => Promise<void>;
+  getDailyInstancesForDate: (date: Date) => DailyTaskInstance[];
+  updateDailyTaskInstance: (id: string, updates: Partial<Omit<DailyTaskInstance, 'id' | 'createdAt'>>) => Promise<void>;
+  getDailyStatusForDate: (date: Date) => DailyStatus;
   setFilters: (filters: CalendarFilters) => void;
   getTodayTasks: () => Task[];
   getTodayEvents: () => Event[];
+  getTodayAssignments: () => Assignment[];
   getTasksByDate: (date: Date) => Task[];
   getEventsByDate: (date: Date) => Event[];
   getAssignmentsByDate: (date: Date) => Assignment[];
@@ -52,6 +57,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<Event[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [dailyItems, setDailyItems] = useState<DailyItem[]>([]);
+  const [dailyTaskInstances, setDailyTaskInstances] = useState<DailyTaskInstance[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
   const [filters, setFilters] = useState<CalendarFilters>({
     showAssignments: true,
@@ -85,8 +91,8 @@ export function PotionProvider({ children }: { children: ReactNode }) {
         setClasses(classesData);
         setDailyItems(dailyItemsData);
 
-        // Reset daily items for new day
-        const today = new Date().toISOString().split('T')[0];
+        // Reset daily items for new day (considering 4 AM cutoff)
+        const today = getCurrentDayString();
         await storage.dailyItems.resetForNewDay(today);
 
         setIsHydrated(true);
@@ -313,25 +319,31 @@ export function PotionProvider({ children }: { children: ReactNode }) {
 
   const getTodayTasks = () => {
     if (!isHydrated) return [];
-    const today = new Date();
+    const today = getCurrentDay();
     return tasks.filter(task => {
       const taskDate = parseLocalDate(task.scheduledDate);
       taskDate.setHours(0, 0, 0, 0);
-      const todayDate = new Date(today);
-      todayDate.setHours(0, 0, 0, 0);
-      return taskDate.getTime() === todayDate.getTime();
+      return taskDate.getTime() === today.getTime();
     });
   };
 
   const getTodayEvents = () => {
     if (!isHydrated) return [];
-    const today = new Date();
+    const today = getCurrentDay();
     return events.filter(event => {
       const eventDate = parseLocalDate(event.scheduledDate);
       eventDate.setHours(0, 0, 0, 0);
-      const todayDate = new Date(today);
-      todayDate.setHours(0, 0, 0, 0);
-      return eventDate.getTime() === todayDate.getTime();
+      return eventDate.getTime() === today.getTime();
+    });
+  };
+
+  const getTodayAssignments = () => {
+    if (!isHydrated) return [];
+    const today = getCurrentDay();
+    return assignments.filter(assignment => {
+      const dueDate = parseLocalDate(assignment.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate.getTime() === today.getTime();
     });
   };
 
@@ -555,6 +567,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
         setFilters,
         getTodayTasks,
         getTodayEvents,
+        getTodayAssignments,
         getTasksByDate,
         getEventsByDate,
         getAssignmentsByDate,

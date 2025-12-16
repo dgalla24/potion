@@ -469,14 +469,20 @@ export default function Calendar() {
     getClassById,
     toggleClassFilter
   } = usePotion();
-  const [currentDate, setCurrentDate] = useState(new Date());
+  // Initialize with a date that represents "current week mode"
+  const [currentDate, setCurrentDate] = useState(() => {
+    const today = new Date();
+    // Set to a special marker: the current date (not the 1st of the month)
+    // This will trigger the calendar to show the current week
+    return today;
+  });
   const [showFilters, setShowFilters] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [editingItem, setEditingItem] = useState<Assignment | Task | Exam | Event | null>(null);
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState<string | null>(null);
   const [highlightedExamId, setHighlightedExamId] = useState<string | null>(null);
-  const [showDailyPopout, setShowDailyPopout] = useState(false);
+  const [showDailyPopout, setShowDailyPopout] = useState(true);
   const [clipboardItem, setClipboardItem] = useState<Assignment | Task | Exam | Event | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 

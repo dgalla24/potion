@@ -104,3 +104,17 @@ export interface DailyItem {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Daily task instance for a specific day
+export interface DailyTaskInstance {
+  id: string;
+  dailyItemId: string; // Reference to the DailyItem template
+  date: string; // ISO date string (YYYY-MM-DD)
+  title: string; // Copied from DailyItem at creation time
+  completed: boolean;
+  hours: number; // Copied from DailyItem at creation time
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type DailyStatus = 'not_started' | 'in_progress' | 'completed';
