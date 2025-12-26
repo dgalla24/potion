@@ -608,7 +608,7 @@ export default function ScheduleView() {
             onDrop={(e) => {
               e.preventDefault();
               const rect = scheduleRef.current?.getBoundingClientRect();
-              if (!rect) return;
+              if (!rect || !scheduleRef.current) return;
 
               const relativeY = e.clientY - rect.top + scheduleRef.current.scrollTop;
               const totalMinutes = Math.round((relativeY / HOUR_HEIGHT) * 60 / 15) * 15;
