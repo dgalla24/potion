@@ -610,7 +610,7 @@ export default function ScheduleView() {
               const rect = scheduleRef.current?.getBoundingClientRect();
               if (!rect || !scheduleRef.current) return;
 
-              const relativeY = e.clientY - rect.top + scheduleRef.current.scrollTop;
+              const relativeY = e.clientY - rect.top + scheduleRef.current!.scrollTop;
               const totalMinutes = Math.round((relativeY / HOUR_HEIGHT) * 60 / 15) * 15;
               const hour = Math.floor(totalMinutes / 60);
               const minute = totalMinutes % 60;

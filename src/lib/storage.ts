@@ -449,22 +449,7 @@ export const storage = {
       return true;
     },
 
-    // Reset all items' completed status to false for a new day
-    resetForNewDay(today: string): void {
-      const items = this.getAll();
-      const updatedItems = items.map(item => {
-        // Only reset if it's a new day
-        if (item.lastResetDate !== today) {
-          return {
-            ...item,
-            completed: false,
-            lastResetDate: today,
-            updatedAt: new Date(),
-          };
-        }
-        return item;
-      });
-      this.save(updatedItems);
-    },
+    // Note: Daily items are now just templates (no completion status)
+    // Completion is tracked per-day in daily_goal_instances table
   },
 };
