@@ -498,7 +498,7 @@ function CalendarDay({
               ? () => onDeleteItem(contextMenu.item!)
               : contextMenu.isDailyGoals && contextMenu.dailyGoalsDate
                 ? () => {
-                    onDeleteDailyGoals(contextMenu.dailyGoalsDate);
+                    onDeleteDailyGoals(contextMenu.dailyGoalsDate!);
                     setContextMenu(null);
                   }
                 : undefined
