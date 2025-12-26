@@ -5,30 +5,40 @@ import { usePotion } from '@/hooks/usePotion';
 import { Plus, Trash2, Check } from 'lucide-react';
 
 export default function DailyChecklist() {
-  const { dailyItems, addDailyItem, updateDailyItem, deleteDailyItem } = usePotion();
+  const {
+    dailyItems,
+    addDailyItem,
+    updateDailyItem,
+    deleteDailyItem,
+    getDailyInstancesForDate,
+    updateDailyGoalInstance
+  } = usePotion();
   const [newItemTitle, setNewItemTitle] = useState('');
   const [newItemHours, setNewItemHours] = useState('0');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingHours, setEditingHours] = useState('0');
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date();
+  const todayInstances = getDailyInstancesForDate(today);
 
   const handleAddItem = async () => {
     if (!newItemTitle.trim()) return;
 
     await addDailyItem({
       title: newItemTitle.trim(),
-      completed: false,
       hours: parseFloat(newItemHours) || 0,
-      lastResetDate: today,
     });
     setNewItemTitle('');
     setNewItemHours('0');
   };
 
-  const handleToggleComplete = async (id: string, currentStatus: boolean) => {
-    await updateDailyItem(id, { completed: !currentStatus });
+  const handleToggleComplete = async (dailyItemId: string) => {
+    // Find today's instance for this daily item
+    const instance = todayInstances.find(i => i.dailyItemId === dailyItemId);
+    if (instance) {
+      await updateDailyGoalInstance(instance.id, { completed: !instance.completed });
+    }
   };
 
   const handleStartEdit = (id: string, title: string, hours: number) => {
@@ -75,8 +85,8 @@ export default function DailyChecklist() {
     }
   };
 
-  const completedCount = dailyItems.filter(item => item.completed).length;
-  const totalCount = dailyItems.length;
+  const completedCount = todayInstances.filter(instance => instance.completed).length;
+  const totalCount = todayInstances.length;
 
   return (
     <div className="p-6 min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -143,25 +153,29 @@ export default function DailyChecklist() {
                 <p className="text-sm mt-2">Add your first recurring task above</p>
               </div>
             ) : (
-              dailyItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
-                >
-                  <div className="flex items-center gap-4">
-                    {/* Checkbox */}
-                    <button
-                      onClick={() => handleToggleComplete(item.id, item.completed)}
-                      className={`flex-shrink-0 w-6 h-6 rounded-md border-2 transition-all duration-200 flex items-center justify-center ${
-                        item.completed
-                          ? 'bg-blue-600 border-blue-600'
-                          : 'border-gray-300 dark:border-gray-600 hover:border-blue-500'
-                      }`}
-                    >
-                      {item.completed && (
-                        <Check className="w-4 h-4 text-white" strokeWidth={3} />
-                      )}
-                    </button>
+              dailyItems.map((item) => {
+                const instance = todayInstances.find(i => i.dailyItemId === item.id);
+                const isCompleted = instance?.completed || false;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Checkbox */}
+                      <button
+                        onClick={() => handleToggleComplete(item.id)}
+                        className={`flex-shrink-0 w-6 h-6 rounded-md border-2 transition-all duration-200 flex items-center justify-center ${
+                          isCompleted
+                            ? 'bg-blue-600 border-blue-600'
+                            : 'border-gray-300 dark:border-gray-600 hover:border-blue-500'
+                        }`}
+                      >
+                        {isCompleted && (
+                          <Check className="w-4 h-4 text-white" strokeWidth={3} />
+                        )}
+                      </button>
 
                     {/* Title and Hours */}
                     {editingId === item.id ? (
@@ -191,7 +205,7 @@ export default function DailyChecklist() {
                         <div
                           onClick={() => handleStartEdit(item.id, item.title, item.hours)}
                           className={`flex-1 text-lg cursor-pointer ${
-                            item.completed
+                            isCompleted
                               ? 'line-through text-gray-400 dark:text-gray-500'
                               : 'text-gray-900 dark:text-gray-100'
                           }`}
@@ -215,7 +229,8 @@ export default function DailyChecklist() {
                     </button>
                   </div>
                 </div>
-              ))
+              );
+            })
             )}
           </div>
         </div>

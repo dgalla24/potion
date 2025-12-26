@@ -32,6 +32,8 @@ interface CalendarDayProps {
   onHighlightAssignment: (assignmentId: string | null) => void;
   onHighlightExam: (examId: string | null) => void;
   hasClipboardItem: boolean;
+  onOpenDailySidebar: (date: Date) => void;
+  onDeleteDailyGoals: (date: Date) => void;
 }
 
 function CalendarDay({
@@ -56,20 +58,32 @@ function CalendarDay({
   highlightedExamId,
   onHighlightAssignment,
   onHighlightExam,
-  hasClipboardItem
+  hasClipboardItem,
+  onOpenDailySidebar,
+  onDeleteDailyGoals
 }: CalendarDayProps) {
+  const { getDailyStatusForDate, getDailyHoursForDate, getDailyInstancesForDate, dailyItems } = usePotion();
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     item?: Assignment | Task | Exam | Event;
     isDay?: boolean;
+    isDailyGoals?: boolean;
+    dailyGoalsDate?: Date;
   } | null>(null);
 
   const isCurrentDay = isToday(date);
   const isCurrentMonthDate = date.getMonth() === currentMonth;
 
-  // Calculate total hours for the day
-  const totalHours = tasks.reduce((sum, task) => sum + task.hours, 0) + events.reduce((sum, event) => sum + event.hours, 0);
+  // Get daily goal status and hours
+  const dailyStatus = getDailyStatusForDate(date);
+  const dailyHours = getDailyHoursForDate(date);
+  const dailyInstances = getDailyInstancesForDate(date);
+  const dailyCompletedCount = dailyInstances.filter(i => i.completed).length;
+  const dailyTotalCount = dailyInstances.length;
+
+  // Calculate total hours for the day (including daily goals)
+  const totalHours = tasks.reduce((sum, task) => sum + task.hours, 0) + events.reduce((sum, event) => sum + event.hours, 0) + dailyHours;
 
   const handleRightClick = (e: React.MouseEvent, item: Assignment | Task | Exam | Event) => {
     e.preventDefault();
@@ -232,6 +246,50 @@ function CalendarDay({
         </div>
 
         <div className="space-y-3">
+          {/* Daily Goals Block */}
+          {dailyTotalCount > 0 && (
+            <div
+              className={`p-2 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-md select-none ${
+                dailyStatus === 'completed'
+                  ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
+                  : dailyStatus === 'in_progress'
+                    ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+                    : 'bg-gray-100 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenDailySidebar(date);
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenu({
+                  x: e.clientX,
+                  y: e.clientY,
+                  isDailyGoals: true,
+                  dailyGoalsDate: date,
+                });
+              }}
+              title="Click to view daily goals"
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                  Daily Goals
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                    {dailyCompletedCount}/{dailyTotalCount}
+                  </span>
+                  {dailyHours > 0 && (
+                    <span className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium">
+                      {dailyHours}h
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {showAssignments && assignments.map(assignment => {
             const assignmentClass = assignment.classId ? getClassById(assignment.classId) : null;
             const assignmentTasks = tasks.filter(task => task.assignmentId === assignment.id);
@@ -435,7 +493,16 @@ function CalendarDay({
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          onDelete={contextMenu.item ? () => onDeleteItem(contextMenu.item!) : undefined}
+          onDelete={
+            contextMenu.item
+              ? () => onDeleteItem(contextMenu.item!)
+              : contextMenu.isDailyGoals && contextMenu.dailyGoalsDate
+                ? () => {
+                    onDeleteDailyGoals(contextMenu.dailyGoalsDate);
+                    setContextMenu(null);
+                  }
+                : undefined
+          }
           onCopy={contextMenu.item ? () => onCopyItem(contextMenu.item!) : undefined}
           onPaste={contextMenu.isDay ? () => onPasteItem(date) : undefined}
           onClose={() => setContextMenu(null)}
@@ -464,6 +531,7 @@ export default function Calendar() {
     updateEvent,
     addAssignment,
     addTask,
+    deleteDailyGoalInstancesByDate,
     addExam,
     addEvent,
     getClassById,
@@ -483,6 +551,7 @@ export default function Calendar() {
   const [highlightedAssignmentId, setHighlightedAssignmentId] = useState<string | null>(null);
   const [highlightedExamId, setHighlightedExamId] = useState<string | null>(null);
   const [showDailyPopout, setShowDailyPopout] = useState(true);
+  const [dailyGoalsSelectedDate, setDailyGoalsSelectedDate] = useState<Date>(new Date());
   const [clipboardItem, setClipboardItem] = useState<Assignment | Task | Exam | Event | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -583,6 +652,7 @@ export default function Calendar() {
       <DailyTasksPopout
         isOpen={showDailyPopout}
         onClose={() => setShowDailyPopout(false)}
+        selectedDate={dailyGoalsSelectedDate}
       />
 
       {/* Main Calendar Content */}
@@ -763,6 +833,11 @@ export default function Calendar() {
                 onHighlightAssignment={setHighlightedAssignmentId}
                 onHighlightExam={setHighlightedExamId}
                 hasClipboardItem={clipboardItem !== null}
+                onOpenDailySidebar={(date) => {
+                  setDailyGoalsSelectedDate(date);
+                  setShowDailyPopout(true);
+                }}
+                onDeleteDailyGoals={deleteDailyGoalInstancesByDate}
               />
             ))}
           </div>

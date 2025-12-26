@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Assignment, Task, Class, CalendarFilters, AssignmentStatus, Exam, Event, ExamStatus, TaskStatus, EventStatus, DailyItem, DailyTaskInstance, DailyStatus } from '@/types';
+import { Assignment, Task, Class, CalendarFilters, AssignmentStatus, Exam, Event, ExamStatus, TaskStatus, EventStatus, DailyItem, DailyGoalInstance, DailyStatus } from '@/types';
 import { supabaseStorage as storage } from '@/lib/supabase-storage';
 import { parseLocalDate, getCurrentDay, getCurrentDayString } from '@/lib/utils';
 import { useAuth } from './useAuth';
@@ -13,7 +13,7 @@ interface PotionContextType {
   events: Event[];
   classes: Class[];
   dailyItems: DailyItem[];
-  dailyTaskInstances: DailyTaskInstance[];
+  dailyGoalInstances: DailyGoalInstance[];
   filters: CalendarFilters;
   addAssignment: (assignment: Omit<Assignment, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Promise<Assignment>;
   updateAssignment: (id: string, updates: Partial<Omit<Assignment, 'id' | 'createdAt'>>) => Promise<void>;
@@ -33,9 +33,12 @@ interface PotionContextType {
   addDailyItem: (item: Omit<DailyItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<DailyItem>;
   updateDailyItem: (id: string, updates: Partial<Omit<DailyItem, 'id' | 'createdAt'>>) => Promise<void>;
   deleteDailyItem: (id: string) => Promise<void>;
-  getDailyInstancesForDate: (date: Date) => DailyTaskInstance[];
-  updateDailyTaskInstance: (id: string, updates: Partial<Omit<DailyTaskInstance, 'id' | 'createdAt'>>) => Promise<void>;
+  getDailyInstancesForDate: (date: Date) => DailyGoalInstance[];
+  updateDailyGoalInstance: (id: string, updates: Partial<Omit<DailyGoalInstance, 'id' | 'createdAt'>>) => Promise<void>;
   getDailyStatusForDate: (date: Date) => DailyStatus;
+  getDailyHoursForDate: (date: Date) => number;
+  generateDailyInstances: (startDate: Date, endDate: Date) => Promise<void>;
+  deleteDailyGoalInstancesByDate: (date: Date) => Promise<void>;
   setFilters: (filters: CalendarFilters) => void;
   getTodayTasks: () => Task[];
   getTodayEvents: () => Event[];
@@ -57,7 +60,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<Event[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [dailyItems, setDailyItems] = useState<DailyItem[]>([]);
-  const [dailyTaskInstances, setDailyTaskInstances] = useState<DailyTaskInstance[]>([]);
+  const [dailyGoalInstances, setDailyGoalInstances] = useState<DailyGoalInstance[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
   const [filters, setFilters] = useState<CalendarFilters>({
     showAssignments: true,
@@ -75,13 +78,14 @@ export function PotionProvider({ children }: { children: ReactNode }) {
 
     const loadData = async () => {
       try {
-        const [assignmentsData, tasksData, examsData, eventsData, classesData, dailyItemsData] = await Promise.all([
+        const [assignmentsData, tasksData, examsData, eventsData, classesData, dailyItemsData, dailyGoalInstancesData] = await Promise.all([
           storage.assignments.getAll(),
           storage.tasks.getAll(),
           storage.exams.getAll(),
           storage.events.getAll(),
           storage.classes.getAll(),
           storage.dailyItems.getAll(),
+          storage.dailyGoalInstances.getAll(),
         ]);
 
         setAssignments(assignmentsData);
@@ -90,10 +94,21 @@ export function PotionProvider({ children }: { children: ReactNode }) {
         setEvents(eventsData);
         setClasses(classesData);
         setDailyItems(dailyItemsData);
+        setDailyGoalInstances(dailyGoalInstancesData);
 
-        // Reset daily items for new day (considering 4 AM cutoff)
-        const today = getCurrentDayString();
-        await storage.dailyItems.resetForNewDay(today);
+        // Generate daily goal instances for the next month if they don't exist
+        const today = new Date();
+        const oneMonthFromNow = new Date(today);
+        oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+        await storage.dailyGoalInstances.generateInstancesForDateRange(
+          dailyItemsData,
+          today.toISOString().split('T')[0],
+          oneMonthFromNow.toISOString().split('T')[0]
+        );
+
+        // Reload instances after generation
+        const updatedInstances = await storage.dailyGoalInstances.getAll();
+        setDailyGoalInstances(updatedInstances);
 
         setIsHydrated(true);
       } catch (error) {
@@ -519,6 +534,21 @@ export function PotionProvider({ children }: { children: ReactNode }) {
   const addDailyItem = async (itemData: Omit<DailyItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newItem = await storage.dailyItems.add(itemData);
     setDailyItems(prev => [...prev, newItem]);
+
+    // Generate instances for the next month for this new daily item
+    const today = new Date();
+    const oneMonthFromNow = new Date(today);
+    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+    await storage.dailyGoalInstances.generateInstancesForDateRange(
+      [newItem],
+      today.toISOString().split('T')[0],
+      oneMonthFromNow.toISOString().split('T')[0]
+    );
+
+    // Reload instances
+    const updatedInstances = await storage.dailyGoalInstances.getAll();
+    setDailyGoalInstances(updatedInstances);
+
     return newItem;
   };
 
@@ -526,6 +556,26 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     const updated = await storage.dailyItems.update(id, updates);
     if (updated) {
       setDailyItems(prev => prev.map(item => item.id === id ? updated : item));
+
+      // Update future instances (delete and regenerate from tomorrow onwards)
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      await storage.dailyGoalInstances.updateFutureInstances(id, tomorrowStr);
+
+      // Regenerate future instances
+      const oneMonthFromNow = new Date();
+      oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+      await storage.dailyGoalInstances.generateInstancesForDateRange(
+        [updated],
+        tomorrowStr,
+        oneMonthFromNow.toISOString().split('T')[0]
+      );
+
+      // Reload instances
+      const updatedInstances = await storage.dailyGoalInstances.getAll();
+      setDailyGoalInstances(updatedInstances);
     }
   };
 
@@ -533,6 +583,67 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     const success = await storage.dailyItems.delete(id);
     if (success) {
       setDailyItems(prev => prev.filter(item => item.id !== id));
+
+      // Delete all future instances for this daily item
+      await storage.dailyGoalInstances.deleteByDailyItemId(id);
+
+      // Reload instances
+      const updatedInstances = await storage.dailyGoalInstances.getAll();
+      setDailyGoalInstances(updatedInstances);
+    }
+  };
+
+  const getDailyInstancesForDate = (date: Date): DailyGoalInstance[] => {
+    if (!isHydrated) return [];
+    const dateStr = date.toISOString().split('T')[0];
+    return dailyGoalInstances.filter(instance => instance.date === dateStr);
+  };
+
+  const updateDailyGoalInstance = async (id: string, updates: Partial<Omit<DailyGoalInstance, 'id' | 'createdAt'>>) => {
+    const updated = await storage.dailyGoalInstances.update(id, updates);
+    if (updated) {
+      setDailyGoalInstances(prev => prev.map(instance => instance.id === id ? updated : instance));
+    }
+  };
+
+  const getDailyStatusForDate = (date: Date): DailyStatus => {
+    const instances = getDailyInstancesForDate(date);
+    if (instances.length === 0) return 'not_started';
+
+    const completed = instances.filter(i => i.completed).length;
+    if (completed === instances.length) return 'completed';
+    if (completed > 0) return 'in_progress';
+    return 'not_started';
+  };
+
+  const getDailyHoursForDate = (date: Date): number => {
+    const instances = getDailyInstancesForDate(date);
+    return instances.reduce((total, instance) => {
+      const dailyItem = dailyItems.find(item => item.id === instance.dailyItemId);
+      return total + (dailyItem?.hours || 0);
+    }, 0);
+  };
+
+  const generateDailyInstances = async (startDate: Date, endDate: Date) => {
+    await storage.dailyGoalInstances.generateInstancesForDateRange(
+      dailyItems,
+      startDate.toISOString().split('T')[0],
+      endDate.toISOString().split('T')[0]
+    );
+
+    // Reload instances
+    const updatedInstances = await storage.dailyGoalInstances.getAll();
+    setDailyGoalInstances(updatedInstances);
+  };
+
+  const deleteDailyGoalInstancesByDate = async (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    const success = await storage.dailyGoalInstances.deleteByDate(dateStr);
+
+    if (success) {
+      // Reload instances
+      const updatedInstances = await storage.dailyGoalInstances.getAll();
+      setDailyGoalInstances(updatedInstances);
     }
   };
 
@@ -545,6 +656,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
         events,
         classes,
         dailyItems,
+        dailyGoalInstances,
         filters,
         addAssignment,
         updateAssignment,
@@ -564,6 +676,12 @@ export function PotionProvider({ children }: { children: ReactNode }) {
         addDailyItem,
         updateDailyItem,
         deleteDailyItem,
+        getDailyInstancesForDate,
+        updateDailyGoalInstance,
+        getDailyStatusForDate,
+        getDailyHoursForDate,
+        generateDailyInstances,
+        deleteDailyGoalInstancesByDate,
         setFilters,
         getTodayTasks,
         getTodayEvents,

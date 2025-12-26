@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Assignment, Task, Class, Exam, Event, DailyItem } from '@/types';
+import { Assignment, Task, Class, Exam, Event, DailyItem, DailyGoalInstance } from '@/types';
 
 // Helper to convert snake_case from DB to camelCase for app
 const toCamelCase = (obj: any) => {
@@ -13,7 +13,7 @@ const toCamelCase = (obj: any) => {
     examId: obj.exam_id,
     userId: obj.user_id,
     startTime: obj.start_time,
-    lastResetDate: obj.last_reset_date,
+    dailyItemId: obj.daily_item_id,
     createdAt: new Date(obj.created_at),
     updatedAt: new Date(obj.updated_at),
   };
@@ -28,7 +28,7 @@ const toSnakeCase = (obj: any) => {
   if (obj.assignmentId !== undefined) result.assignment_id = obj.assignmentId;
   if (obj.examId !== undefined) result.exam_id = obj.examId;
   if (obj.startTime !== undefined) result.start_time = obj.startTime;
-  if (obj.lastResetDate) result.last_reset_date = obj.lastResetDate;
+  if (obj.dailyItemId !== undefined) result.daily_item_id = obj.dailyItemId;
 
   // Remove camelCase versions
   delete result.dueDate;
@@ -38,7 +38,7 @@ const toSnakeCase = (obj: any) => {
   delete result.examId;
   delete result.userId;
   delete result.startTime;
-  delete result.lastResetDate;
+  delete result.dailyItemId;
   delete result.createdAt;
   delete result.updatedAt;
 
@@ -326,16 +326,140 @@ export const supabaseStorage = {
 
       return !error;
     },
+  },
 
-    async resetForNewDay(today: string): Promise<void> {
+  dailyGoalInstances: {
+    async getAll(): Promise<DailyGoalInstance[]> {
+      const { data, error } = await supabase
+        .from('daily_goal_instances')
+        .select('*')
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+      return (data || []).map(toCamelCase);
+    },
+
+    async getByDateRange(startDate: string, endDate: string): Promise<DailyGoalInstance[]> {
+      const { data, error } = await supabase
+        .from('daily_goal_instances')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: true });
+
+      if (error) throw error;
+      return (data || []).map(toCamelCase);
+    },
+
+    async add(instance: Omit<DailyGoalInstance, 'id' | 'createdAt' | 'updatedAt'>): Promise<DailyGoalInstance> {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('daily_goal_instances')
+        .insert([{ ...toSnakeCase(instance), user_id: user.id }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return toCamelCase(data);
+    },
+
+    async addBatch(instances: Omit<DailyGoalInstance, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<DailyGoalInstance[]> {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('daily_goal_instances')
+        .insert(instances.map(inst => ({ ...toSnakeCase(inst), user_id: user.id })))
+        .select();
+
+      if (error) throw error;
+      return (data || []).map(toCamelCase);
+    },
+
+    async update(id: string, updates: Partial<Omit<DailyGoalInstance, 'id' | 'createdAt'>>): Promise<DailyGoalInstance | null> {
+      const { data, error } = await supabase
+        .from('daily_goal_instances')
+        .update(toSnakeCase(updates))
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data ? toCamelCase(data) : null;
+    },
+
+    async delete(id: string): Promise<boolean> {
+      const { error } = await supabase
+        .from('daily_goal_instances')
+        .delete()
+        .eq('id', id);
+
+      return !error;
+    },
+
+    async deleteByDailyItemId(dailyItemId: string): Promise<boolean> {
+      const { error } = await supabase
+        .from('daily_goal_instances')
+        .delete()
+        .eq('daily_item_id', dailyItemId);
+
+      return !error;
+    },
+
+    async updateFutureInstances(dailyItemId: string, fromDate: string): Promise<void> {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Delete all future instances for this daily item
       await supabase
-        .from('daily_items')
-        .update({ completed: false, last_reset_date: today })
+        .from('daily_goal_instances')
+        .delete()
         .eq('user_id', user.id)
-        .neq('last_reset_date', today);
+        .eq('daily_item_id', dailyItemId)
+        .gte('date', fromDate);
+    },
+
+    async generateInstancesForDateRange(dailyItems: DailyItem[], startDate: string, endDate: string): Promise<void> {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const instances: any[] = [];
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      for (const item of dailyItems) {
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().split('T')[0];
+          instances.push({
+            user_id: user.id,
+            daily_item_id: item.id,
+            date: dateStr,
+            completed: false,
+          });
+        }
+      }
+
+      if (instances.length > 0) {
+        // Use upsert to avoid duplicates
+        await supabase
+          .from('daily_goal_instances')
+          .upsert(instances, { onConflict: 'user_id,daily_item_id,date' });
+      }
+    },
+
+    async deleteByDate(date: string): Promise<boolean> {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+
+      const { error } = await supabase
+        .from('daily_goal_instances')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('date', date);
+
+      return !error;
     },
   },
 };

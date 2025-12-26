@@ -98,21 +98,17 @@ export interface DayData {
 export interface DailyItem {
   id: string;
   title: string;
-  completed: boolean;
   hours: number;
-  lastResetDate: string; // ISO date string to track when status was last reset
   createdAt: Date;
   updatedAt: Date;
 }
 
-// Daily task instance for a specific day
-export interface DailyTaskInstance {
+// Daily goal instance for a specific day
+export interface DailyGoalInstance {
   id: string;
   dailyItemId: string; // Reference to the DailyItem template
   date: string; // ISO date string (YYYY-MM-DD)
-  title: string; // Copied from DailyItem at creation time
   completed: boolean;
-  hours: number; // Copied from DailyItem at creation time
   createdAt: Date;
   updatedAt: Date;
 }

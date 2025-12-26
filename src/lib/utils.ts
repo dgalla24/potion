@@ -45,7 +45,9 @@ export function getCurrentDayString(): string {
 }
 
 export function isToday(date: Date): boolean {
-  const today = getCurrentDay();
+  // Use actual current date for calendar highlighting (not the 4 AM adjusted day)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const checkDate = new Date(date);
   checkDate.setHours(0, 0, 0, 0);
   return today.getTime() === checkDate.getTime();
