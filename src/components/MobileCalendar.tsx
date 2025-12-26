@@ -127,6 +127,7 @@ interface DayDetailModalProps {
   onClose: () => void;
   onAddItem: () => void;
   onEditItem: (item: Assignment | Task | Exam | Event) => void;
+  onOpenDailyGoals: () => void;
   getClassById: (id: string) => import('@/types').Class | undefined;
 }
 
@@ -139,9 +140,10 @@ function DayDetailModal({
   onClose,
   onAddItem,
   onEditItem,
+  onOpenDailyGoals,
   getClassById
 }: DayDetailModalProps) {
-  const { getDailyHoursForDate } = usePotion();
+  const { getDailyHoursForDate, getDailyInstancesForDate, getDailyStatusForDate, dailyItems } = usePotion();
 
   const dateString = date.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -161,6 +163,12 @@ function DayDetailModal({
     tasks.reduce((sum, task) => sum + task.hours, 0) +
     events.reduce((sum, event) => sum + event.hours, 0) +
     getDailyHoursForDate(date);
+
+  // Daily goals data
+  const dailyInstances = getDailyInstancesForDate(date);
+  const dailyStatus = getDailyStatusForDate(date);
+  const dailyHours = getDailyHoursForDate(date);
+  const dailyCompletedCount = dailyInstances.filter(i => i.completed).length;
 
   const getItemColor = (type: string) => {
     switch (type) {
@@ -210,6 +218,42 @@ function DayDetailModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
+          {/* Daily Goals Section */}
+          {dailyItems.length > 0 && (
+            <div className="mb-4">
+              <div
+                onClick={onOpenDailyGoals}
+                className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-md ${
+                  dailyStatus === 'completed'
+                    ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
+                    : dailyStatus === 'in_progress'
+                      ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+                      : 'bg-gray-100 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                      Daily Goals
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {dailyCompletedCount}/{dailyInstances.length} completed
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {dailyHours > 0 && (
+                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-medium">
+                        {dailyHours}h
+                      </span>
+                    )}
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Regular Items */}
           {allItems.length === 0 ? (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
               <p className="mb-4">No items for this day</p>
@@ -286,11 +330,7 @@ export default function MobileCalendar() {
     getTasksByDate,
     getExamsByDate,
     getEventsByDate,
-    getClassById,
-    getDailyInstancesForDate,
-    getDailyStatusForDate,
-    getDailyHoursForDate,
-    dailyItems
+    getClassById
   } = usePotion();
 
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -350,10 +390,6 @@ export default function MobileCalendar() {
     );
   };
 
-  const hasDailyGoals = (date: Date) => {
-    return dailyItems.length > 0;
-  };
-
   return (
     <div className="p-4 min-h-screen">
       {/* Header */}
@@ -397,17 +433,13 @@ export default function MobileCalendar() {
             const today = isToday(date);
             const currentMonth = date.getMonth() === currentDate.getMonth();
             const hasItemsToday = hasItems(date);
-            const hasDailyGoalsToday = hasDailyGoals(date);
-            const dailyStatus = getDailyStatusForDate(date);
-            const dailyInstances = getDailyInstancesForDate(date);
-            const dailyHours = getDailyHoursForDate(date);
 
             return (
               <button
                 key={index}
                 onClick={() => handleDayClick(date)}
                 className={`
-                  aspect-square p-1 flex flex-col items-start justify-start relative
+                  aspect-square p-2 flex flex-col items-center justify-center relative
                   border-b border-r border-gray-100 dark:border-gray-700
                   ${today ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
                   ${!currentMonth ? 'text-gray-400 dark:text-gray-600' : ''}
@@ -420,29 +452,8 @@ export default function MobileCalendar() {
                 `}>
                   {date.getDate()}
                 </span>
-
-                {/* Daily Goals Indicator */}
-                {hasDailyGoalsToday && (
-                  <div
-                    className={`w-full mt-1 p-0.5 rounded text-[0.5rem] font-medium text-center ${
-                      dailyStatus === 'completed'
-                        ? 'bg-green-600 dark:bg-green-700 text-white'
-                        : dailyStatus === 'in_progress'
-                          ? 'bg-blue-600 dark:bg-blue-700 text-white'
-                          : 'bg-gray-400 dark:bg-gray-600 text-white'
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenDailyGoals(date);
-                    }}
-                  >
-                    {dailyHours > 0 ? `${dailyHours}h` : '•'}
-                  </div>
-                )}
-
-                {/* Regular Items Indicator */}
                 {hasItemsToday && (
-                  <div className="absolute bottom-1 right-1">
+                  <div className="absolute bottom-1 flex gap-0.5">
                     <div className="w-1 h-1 rounded-full bg-blue-600 dark:bg-blue-400"></div>
                   </div>
                 )}
@@ -463,6 +474,7 @@ export default function MobileCalendar() {
           onClose={handleCloseDayModal}
           onAddItem={handleAddItem}
           onEditItem={handleEditItem}
+          onOpenDailyGoals={() => handleOpenDailyGoals(selectedDate)}
           getClassById={getClassById}
         />
       )}
