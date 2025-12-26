@@ -114,14 +114,12 @@ export default function MigratePage() {
         });
       }
 
-      // Migrate daily items
+      // Migrate daily items (now just templates, instances created automatically)
       for (const item of localDailyItems) {
         setStatus(`Migrating daily item: ${item.title}`);
         await supabaseStorage.dailyItems.add({
           title: item.title,
-          completed: item.completed || false,
           hours: item.hours || 0,
-          lastResetDate: item.lastResetDate || new Date().toISOString().split('T')[0],
         });
       }
 
