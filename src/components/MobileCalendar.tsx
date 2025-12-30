@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, Check } from 'lucide-react';
 import { usePotion } from '@/hooks/usePotion';
 import { getCalendarDays, isToday, formatDate } from '@/lib/utils';
-import { Assignment, Task, Exam, Event } from '@/types';
+import { Assignment, Task, Exam, Event, ClassInstance } from '@/types';
 import ItemModal from './ItemModal';
+import ClassInstanceModal from './ClassInstanceModal';
 
 interface DailyGoalsModalProps {
   date: Date;
@@ -143,7 +144,8 @@ function DayDetailModal({
   onOpenDailyGoals,
   getClassById
 }: DayDetailModalProps) {
-  const { getDailyHoursForDate, getDailyInstancesForDate, getDailyStatusForDate, dailyItems } = usePotion();
+  const { getDailyHoursForDate, getDailyInstancesForDate, getDailyStatusForDate, dailyItems, getClassInstancesForDate, getClassHoursForDate, classes, updateClassInstance, deleteClassInstance } = usePotion();
+  const [selectedClassInstance, setSelectedClassInstance] = useState<ClassInstance | null>(null);
 
   const dateString = date.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -158,17 +160,21 @@ function DayDetailModal({
     ...events.map(e => ({ ...e, type: 'event' as const }))
   ];
 
-  // Calculate total hours (tasks + events + daily goals)
+  // Calculate total hours (tasks + events + daily goals + classes)
   const totalHours =
     tasks.reduce((sum, task) => sum + task.hours, 0) +
     events.reduce((sum, event) => sum + event.hours, 0) +
-    getDailyHoursForDate(date);
+    getDailyHoursForDate(date) +
+    getClassHoursForDate(date);
 
   // Daily goals data
   const dailyInstances = getDailyInstancesForDate(date);
   const dailyStatus = getDailyStatusForDate(date);
   const dailyHours = getDailyHoursForDate(date);
   const dailyCompletedCount = dailyInstances.filter(i => i.completed).length;
+
+  // Class instances data
+  const classInstances = getClassInstancesForDate(date);
 
   const getItemColor = (type: string) => {
     switch (type) {
@@ -253,6 +259,51 @@ function DayDetailModal({
             </div>
           )}
 
+          {/* Class Instances Section */}
+          {classInstances.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {classInstances.map((instance) => {
+                const classItem = classes.find(c => c.id === instance.classId);
+                if (!classItem) return null;
+
+                return (
+                  <div
+                    key={instance.id}
+                    onClick={() => setSelectedClassInstance(instance)}
+                    className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-md ${
+                      instance.completed
+                        ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
+                        : 'bg-gray-100 border-gray-200 dark:bg-gray-800 dark:border-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{classItem.emoji}</span>
+                      <div className="flex-1">
+                        <h3 className={`font-semibold ${
+                          instance.completed
+                            ? 'text-gray-500 dark:text-gray-400'
+                            : 'text-gray-900 dark:text-gray-100'
+                        }`}>
+                          {classItem.name}
+                        </h3>
+                        {classItem.startTime && classItem.endTime && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {classItem.startTime} - {classItem.endTime}
+                          </p>
+                        )}
+                      </div>
+                      {classItem.duration && classItem.duration > 0 && (
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-medium">
+                          {classItem.duration}h
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Regular Items */}
           {allItems.length === 0 ? (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
@@ -320,6 +371,22 @@ function DayDetailModal({
           </div>
         )}
       </div>
+
+      {/* Class Instance Modal */}
+      {selectedClassInstance && (
+        <ClassInstanceModal
+          instance={selectedClassInstance}
+          classInfo={classes.find(c => c.id === selectedClassInstance.classId)!}
+          onClose={() => setSelectedClassInstance(null)}
+          onToggleComplete={async (instanceId: string, currentStatus: boolean) => {
+            await updateClassInstance(instanceId, { completed: !currentStatus });
+          }}
+          onDelete={async (instanceId: string) => {
+            await deleteClassInstance(instanceId);
+            setSelectedClassInstance(null);
+          }}
+        />
+      )}
     </div>
   );
 }

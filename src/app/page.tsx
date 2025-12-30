@@ -10,17 +10,18 @@ import MobileCalendar from '@/components/MobileCalendar';
 import ScheduleView from '@/components/ScheduleView';
 import DailyTodoList from '@/components/DailyTodoList';
 import DailyChecklist from '@/components/DailyChecklist';
+import Classes from '@/components/Classes';
 import InstallPrompt from '@/components/InstallPrompt';
 import Auth from '@/components/Auth';
 import { usePWA } from '@/hooks/usePWA';
 
 export default function HomePage() {
-  const [currentView, setCurrentView] = useState<'calendar' | 'todo' | 'daily' | 'schedule'>('todo');
+  const [currentView, setCurrentView] = useState<'calendar' | 'todo' | 'daily' | 'schedule' | 'classes'>('todo');
   const { user, loading } = useAuth();
 
   usePWA();
 
-  const handleViewChange = (view: 'calendar' | 'todo' | 'daily' | 'schedule') => {
+  const handleViewChange = (view: 'calendar' | 'todo' | 'daily' | 'schedule' | 'classes') => {
     setCurrentView(view);
   };
 
@@ -55,6 +56,7 @@ export default function HomePage() {
             {currentView === 'schedule' && <ScheduleView />}
             {currentView === 'todo' && <DailyTodoList />}
             {currentView === 'daily' && <DailyChecklist />}
+            {currentView === 'classes' && <Classes />}
           </main>
 
           <InstallPrompt />

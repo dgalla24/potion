@@ -7,6 +7,10 @@ export interface Class {
   id: string;
   name: string;
   emoji: string;
+  daysOfWeek?: number[]; // Array of day numbers: 1=Monday, 7=Sunday
+  startTime?: string; // HH:MM format (e.g., "09:00")
+  endTime?: string; // HH:MM format (e.g., "10:30")
+  duration?: number; // Hours (e.g., 1.5)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -114,3 +118,14 @@ export interface DailyGoalInstance {
 }
 
 export type DailyStatus = 'not_started' | 'in_progress' | 'completed';
+
+// Class instance for a specific day (a single class session)
+export interface ClassInstance {
+  id: string;
+  classId: string; // Reference to the Class template
+  date: string; // ISO date string (YYYY-MM-DD)
+  completed: boolean;
+  cancelled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}

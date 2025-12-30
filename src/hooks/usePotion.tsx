@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Assignment, Task, Class, CalendarFilters, AssignmentStatus, Exam, Event, ExamStatus, TaskStatus, EventStatus, DailyItem, DailyGoalInstance, DailyStatus } from '@/types';
+import { Assignment, Task, Class, CalendarFilters, AssignmentStatus, Exam, Event, ExamStatus, TaskStatus, EventStatus, DailyItem, DailyGoalInstance, DailyStatus, ClassInstance } from '@/types';
 import { supabaseStorage as storage } from '@/lib/supabase-storage';
 import { parseLocalDate, getCurrentDay, getCurrentDayString } from '@/lib/utils';
 import { useAuth } from './useAuth';
@@ -14,6 +14,7 @@ interface PotionContextType {
   classes: Class[];
   dailyItems: DailyItem[];
   dailyGoalInstances: DailyGoalInstance[];
+  classInstances: ClassInstance[];
   filters: CalendarFilters;
   addAssignment: (assignment: Omit<Assignment, 'id' | 'type' | 'createdAt' | 'updatedAt'>) => Promise<Assignment>;
   updateAssignment: (id: string, updates: Partial<Omit<Assignment, 'id' | 'createdAt'>>) => Promise<void>;
@@ -39,6 +40,11 @@ interface PotionContextType {
   getDailyHoursForDate: (date: Date) => number;
   generateDailyInstances: (startDate: Date, endDate: Date) => Promise<void>;
   deleteDailyGoalInstancesByDate: (date: Date) => Promise<void>;
+  getClassInstancesForDate: (date: Date) => ClassInstance[];
+  getClassHoursForDate: (date: Date) => number;
+  updateClassInstance: (id: string, updates: Partial<Omit<ClassInstance, 'id' | 'createdAt'>>) => Promise<void>;
+  deleteClassInstance: (id: string) => Promise<void>;
+  generateClassInstances: (startDate: Date, endDate: Date) => Promise<void>;
   setFilters: (filters: CalendarFilters) => void;
   getTodayTasks: () => Task[];
   getTodayEvents: () => Event[];
@@ -61,6 +67,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
   const [classes, setClasses] = useState<Class[]>([]);
   const [dailyItems, setDailyItems] = useState<DailyItem[]>([]);
   const [dailyGoalInstances, setDailyGoalInstances] = useState<DailyGoalInstance[]>([]);
+  const [classInstances, setClassInstances] = useState<ClassInstance[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
   const [filters, setFilters] = useState<CalendarFilters>({
     showAssignments: true,
@@ -78,7 +85,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
 
     const loadData = async () => {
       try {
-        const [assignmentsData, tasksData, examsData, eventsData, classesData, dailyItemsData, dailyGoalInstancesData] = await Promise.all([
+        const [assignmentsData, tasksData, examsData, eventsData, classesData, dailyItemsData, dailyGoalInstancesData, classInstancesData] = await Promise.all([
           storage.assignments.getAll(),
           storage.tasks.getAll(),
           storage.exams.getAll(),
@@ -86,6 +93,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
           storage.classes.getAll(),
           storage.dailyItems.getAll(),
           storage.dailyGoalInstances.getAll(),
+          storage.classInstances.getAll(),
         ]);
 
         setAssignments(assignmentsData);
@@ -95,6 +103,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
         setClasses(classesData);
         setDailyItems(dailyItemsData);
         setDailyGoalInstances(dailyGoalInstancesData);
+        setClassInstances(classInstancesData);
 
         // Generate daily goal instances for the next month if they don't exist
         const today = new Date();
@@ -109,6 +118,17 @@ export function PotionProvider({ children }: { children: ReactNode }) {
         // Reload instances after generation
         const updatedInstances = await storage.dailyGoalInstances.getAll();
         setDailyGoalInstances(updatedInstances);
+
+        // Generate class instances for the next month if they don't exist
+        await storage.classInstances.generateInstancesForDateRange(
+          classesData,
+          today.toISOString().split('T')[0],
+          oneMonthFromNow.toISOString().split('T')[0]
+        );
+
+        // Reload class instances after generation
+        const updatedClassInstances = await storage.classInstances.getAll();
+        setClassInstances(updatedClassInstances);
 
         setIsHydrated(true);
       } catch (error) {
@@ -292,6 +312,23 @@ export function PotionProvider({ children }: { children: ReactNode }) {
   const addClass = async (classData: Omit<Class, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newClass = await storage.classes.add(classData);
     setClasses(prev => [...prev, newClass]);
+
+    // Generate instances for the next month if this class has a schedule
+    if (newClass.daysOfWeek && newClass.daysOfWeek.length > 0) {
+      const today = new Date();
+      const oneMonthFromNow = new Date(today);
+      oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+      await storage.classInstances.generateInstancesForDateRange(
+        [newClass],
+        today.toISOString().split('T')[0],
+        oneMonthFromNow.toISOString().split('T')[0]
+      );
+
+      // Reload class instances
+      const updatedClassInstances = await storage.classInstances.getAll();
+      setClassInstances(updatedClassInstances);
+    }
+
     return newClass;
   };
 
@@ -299,6 +336,27 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     const updated = await storage.classes.update(id, updates);
     if (updated) {
       setClasses(prev => prev.map(c => c.id === id ? updated : c));
+
+      // If schedule was updated, regenerate future instances
+      if (updates.daysOfWeek !== undefined || updates.startTime !== undefined || updates.endTime !== undefined || updates.duration !== undefined) {
+        const today = new Date();
+        const oneMonthFromNow = new Date(today);
+        oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+
+        // Delete all future instances for this class
+        await storage.classInstances.updateFutureInstances(id, today.toISOString().split('T')[0]);
+
+        // Regenerate instances for the next month
+        await storage.classInstances.generateInstancesForDateRange(
+          [updated],
+          today.toISOString().split('T')[0],
+          oneMonthFromNow.toISOString().split('T')[0]
+        );
+
+        // Reload class instances
+        const updatedClassInstances = await storage.classInstances.getAll();
+        setClassInstances(updatedClassInstances);
+      }
     }
   };
 
@@ -306,6 +364,11 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     const success = await storage.classes.delete(id);
     if (success) {
       setClasses(prev => prev.filter(c => c.id !== id));
+
+      // Delete all class instances
+      await storage.classInstances.deleteByClassId(id);
+      setClassInstances(prev => prev.filter(ci => ci.classId !== id));
+
       // Remove class reference from all entities
       const assignmentsWithClass = assignments.filter(a => a.classId === id);
       const tasksWithClass = tasks.filter(t => t.classId === id);
@@ -647,6 +710,46 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const getClassInstancesForDate = (date: Date): ClassInstance[] => {
+    if (!isHydrated) return [];
+    const dateStr = date.toISOString().split('T')[0];
+    return classInstances.filter(instance => instance.date === dateStr && !instance.cancelled);
+  };
+
+  const getClassHoursForDate = (date: Date): number => {
+    const instances = getClassInstancesForDate(date);
+    return instances.reduce((total, instance) => {
+      const classItem = classes.find(c => c.id === instance.classId);
+      return total + (classItem?.duration || 0);
+    }, 0);
+  };
+
+  const updateClassInstance = async (id: string, updates: Partial<Omit<ClassInstance, 'id' | 'createdAt'>>) => {
+    const updated = await storage.classInstances.update(id, updates);
+    if (updated) {
+      setClassInstances(prev => prev.map(instance => instance.id === id ? updated : instance));
+    }
+  };
+
+  const deleteClassInstance = async (id: string) => {
+    const success = await storage.classInstances.delete(id);
+    if (success) {
+      setClassInstances(prev => prev.filter(instance => instance.id !== id));
+    }
+  };
+
+  const generateClassInstances = async (startDate: Date, endDate: Date) => {
+    await storage.classInstances.generateInstancesForDateRange(
+      classes,
+      startDate.toISOString().split('T')[0],
+      endDate.toISOString().split('T')[0]
+    );
+
+    // Reload instances
+    const updatedInstances = await storage.classInstances.getAll();
+    setClassInstances(updatedInstances);
+  };
+
   return (
     <PotionContext.Provider
       value={{
@@ -657,6 +760,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
         classes,
         dailyItems,
         dailyGoalInstances,
+        classInstances,
         filters,
         addAssignment,
         updateAssignment,
@@ -682,6 +786,11 @@ export function PotionProvider({ children }: { children: ReactNode }) {
         getDailyHoursForDate,
         generateDailyInstances,
         deleteDailyGoalInstancesByDate,
+        getClassInstancesForDate,
+        getClassHoursForDate,
+        updateClassInstance,
+        deleteClassInstance,
+        generateClassInstances,
         setFilters,
         getTodayTasks,
         getTodayEvents,

@@ -4,10 +4,11 @@ import { useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Filter, Plus, X } from 'lucide-react';
 import { usePotion } from '@/hooks/usePotion';
 import { formatShortDate, getCalendarDays, isSameDay, isToday } from '@/lib/utils';
-import { Assignment, Task, Exam, Event } from '@/types';
+import { Assignment, Task, Exam, Event, ClassInstance } from '@/types';
 import ItemModal from './ItemModal';
 import ContextMenu from './ContextMenu';
 import DailyTasksPopout from './DailyTasksPopout';
+import ClassInstanceModal from './ClassInstanceModal';
 
 interface CalendarDayProps {
   date: Date;
@@ -62,7 +63,7 @@ function CalendarDay({
   onOpenDailySidebar,
   onDeleteDailyGoals
 }: CalendarDayProps) {
-  const { getDailyStatusForDate, getDailyHoursForDate, getDailyInstancesForDate, dailyItems } = usePotion();
+  const { getDailyStatusForDate, getDailyHoursForDate, getDailyInstancesForDate, dailyItems, getClassInstancesForDate, getClassHoursForDate, classes, updateClassInstance, deleteClassInstance } = usePotion();
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -70,7 +71,9 @@ function CalendarDay({
     isDay?: boolean;
     isDailyGoals?: boolean;
     dailyGoalsDate?: Date;
+    classInstance?: ClassInstance;
   } | null>(null);
+  const [selectedClassInstance, setSelectedClassInstance] = useState<ClassInstance | null>(null);
 
   const isCurrentDay = isToday(date);
   const isCurrentMonthDate = date.getMonth() === currentMonth;
@@ -82,8 +85,12 @@ function CalendarDay({
   const dailyCompletedCount = dailyInstances.filter(i => i.completed).length;
   const dailyTotalCount = dailyInstances.length;
 
-  // Calculate total hours for the day (including daily goals)
-  const totalHours = tasks.reduce((sum, task) => sum + task.hours, 0) + events.reduce((sum, event) => sum + event.hours, 0) + dailyHours;
+  // Get class instances and hours
+  const classInstances = getClassInstancesForDate(date);
+  const classHours = getClassHoursForDate(date);
+
+  // Calculate total hours for the day (including daily goals and classes)
+  const totalHours = tasks.reduce((sum, task) => sum + task.hours, 0) + events.reduce((sum, event) => sum + event.hours, 0) + dailyHours + classHours;
 
   const handleRightClick = (e: React.MouseEvent, item: Assignment | Task | Exam | Event) => {
     e.preventDefault();
@@ -287,6 +294,60 @@ function CalendarDay({
                   )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Class Instances Block */}
+          {classInstances.length > 0 && (
+            <div className="space-y-1">
+              {classInstances.map((instance) => {
+                const classItem = classes.find(c => c.id === instance.classId);
+                if (!classItem) return null;
+
+                const isCompleted = instance.completed;
+                const backgroundColor = isCompleted
+                  ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
+                  : 'bg-gray-100 border-gray-200 dark:bg-gray-800 dark:border-gray-700';
+
+                return (
+                  <div
+                    key={instance.id}
+                    className={`p-2 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-md select-none ${backgroundColor}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedClassInstance(instance);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setContextMenu({
+                        x: e.clientX,
+                        y: e.clientY,
+                        classInstance: instance,
+                      });
+                    }}
+                    title={`${classItem.startTime} - ${classItem.endTime}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{classItem.emoji}</span>
+                        <div className="text-xs font-semibold text-gray-900 dark:text-gray-100">
+                          {classItem.name}
+                        </div>
+                      </div>
+                      {classItem.duration && (
+                        <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                          isCompleted
+                            ? 'bg-green-200 dark:bg-green-600 text-green-700 dark:text-green-300'
+                            : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                        }`}>
+                          {classItem.duration}h
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -501,11 +562,32 @@ function CalendarDay({
                     onDeleteDailyGoals(contextMenu.dailyGoalsDate!);
                     setContextMenu(null);
                   }
-                : undefined
+                : contextMenu.classInstance
+                  ? async () => {
+                      await deleteClassInstance(contextMenu.classInstance!.id);
+                      setContextMenu(null);
+                    }
+                  : undefined
           }
           onCopy={contextMenu.item ? () => onCopyItem(contextMenu.item!) : undefined}
           onPaste={contextMenu.isDay ? () => onPasteItem(date) : undefined}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Class Instance Modal */}
+      {selectedClassInstance && (
+        <ClassInstanceModal
+          instance={selectedClassInstance}
+          classInfo={classes.find(c => c.id === selectedClassInstance.classId)!}
+          onClose={() => setSelectedClassInstance(null)}
+          onToggleComplete={async (instanceId, currentStatus) => {
+            await updateClassInstance(instanceId, { completed: !currentStatus });
+            setSelectedClassInstance(null);
+          }}
+          onDelete={async (instanceId) => {
+            await deleteClassInstance(instanceId);
+          }}
         />
       )}
     </>

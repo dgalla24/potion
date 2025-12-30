@@ -1,12 +1,12 @@
 'use client';
 
-import { Calendar as CalendarIcon, CheckSquare, Moon, Sun, ListChecks, LogOut, Clock } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckSquare, Moon, Sun, ListChecks, LogOut, Clock, GraduationCap } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NavigationProps {
-  currentView: 'calendar' | 'todo' | 'daily' | 'schedule';
-  onViewChange: (view: 'calendar' | 'todo' | 'daily' | 'schedule') => void;
+  currentView: 'calendar' | 'todo' | 'daily' | 'schedule' | 'classes';
+  onViewChange: (view: 'calendar' | 'todo' | 'daily' | 'schedule' | 'classes') => void;
 }
 
 export default function Navigation({ currentView, onViewChange }: NavigationProps) {
@@ -31,6 +31,11 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
   const handleScheduleClick = () => {
     console.log('Schedule button clicked');
     onViewChange('schedule');
+  };
+
+  const handleClassesClick = () => {
+    console.log('Classes button clicked');
+    onViewChange('classes');
   };
 
   console.log('Navigation current view:', currentView);
@@ -91,6 +96,18 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
               >
                 <ListChecks className="w-4 h-4" />
                 <span>Daily</span>
+              </button>
+
+              <button
+                onClick={handleClassesClick}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  currentView === 'classes'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                    : 'text-muted surface-hover'
+                }`}
+              >
+                <GraduationCap className="w-4 h-4" />
+                <span>Classes</span>
               </button>
             </div>
           </div>
@@ -194,6 +211,18 @@ export default function Navigation({ currentView, onViewChange }: NavigationProp
           >
             <ListChecks className="w-6 h-6" />
             <span className="text-xs mt-1">Daily</span>
+          </button>
+
+          <button
+            onClick={handleClassesClick}
+            className={`flex flex-col items-center px-3 py-2 rounded-lg transition-all duration-200 ${
+              currentView === 'classes'
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-muted'
+            }`}
+          >
+            <GraduationCap className="w-6 h-6" />
+            <span className="text-xs mt-1">Classes</span>
           </button>
         </div>
       </nav>
