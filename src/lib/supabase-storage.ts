@@ -257,7 +257,7 @@ export const supabaseStorage = {
 
       const { data, error } = await supabase
         .from('classes')
-        .insert([{ ...class_, user_id: user.id }])
+        .insert([{ ...toSnakeCase(class_), user_id: user.id }])
         .select()
         .single();
 
