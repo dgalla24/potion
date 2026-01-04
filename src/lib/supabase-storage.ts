@@ -25,7 +25,9 @@ const toCamelCase = (obj: any) => {
 
 // Helper to convert camelCase to snake_case for DB
 const toSnakeCase = (obj: any) => {
-  const result: any = { ...obj };
+  const result: any = {};
+
+  // Convert fields that need snake_case conversion
   if (obj.dueDate) result.due_date = obj.dueDate;
   if (obj.scheduledDate) result.scheduled_date = obj.scheduledDate;
   if (obj.classId !== undefined) result.class_id = obj.classId;
@@ -38,21 +40,19 @@ const toSnakeCase = (obj: any) => {
   if (obj.entityType !== undefined) result.entity_type = obj.entityType;
   if (obj.lastRepopulatedDate !== undefined) result.last_repopulated_date = obj.lastRepopulatedDate;
 
-  // Remove camelCase versions
-  delete result.dueDate;
-  delete result.scheduledDate;
-  delete result.classId;
-  delete result.assignmentId;
-  delete result.examId;
-  delete result.userId;
-  delete result.startTime;
-  delete result.endTime;
-  delete result.daysOfWeek;
-  delete result.dailyItemId;
-  delete result.entityType;
-  delete result.lastRepopulatedDate;
-  delete result.createdAt;
-  delete result.updatedAt;
+  // Preserve fields that are already in snake_case (same in both)
+  if (obj.completed !== undefined) result.completed = obj.completed;
+  if (obj.cancelled !== undefined) result.cancelled = obj.cancelled;
+  if (obj.status !== undefined) result.status = obj.status;
+  if (obj.planned !== undefined) result.planned = obj.planned;
+  if (obj.title !== undefined) result.title = obj.title;
+  if (obj.description !== undefined) result.description = obj.description;
+  if (obj.hours !== undefined) result.hours = obj.hours;
+  if (obj.duration !== undefined) result.duration = obj.duration;
+  if (obj.name !== undefined) result.name = obj.name;
+  if (obj.emoji !== undefined) result.emoji = obj.emoji;
+  if (obj.type !== undefined) result.type = obj.type;
+  if (obj.date !== undefined) result.date = obj.date;
 
   return result;
 };
