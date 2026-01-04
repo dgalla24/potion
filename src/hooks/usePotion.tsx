@@ -397,34 +397,21 @@ export function PotionProvider({ children }: { children: ReactNode }) {
   };
 
   const getTodayTasks = () => {
-    if (!isHydrated) {
-      console.log('getTodayTasks: Not hydrated yet');
-      return [];
-    }
+    if (!isHydrated) return [];
     const today = getCurrentDay();
-    console.log('getTodayTasks: Today is', today.toISOString());
-    console.log('getTodayTasks: Total tasks in state:', tasks.length);
-    console.log('getTodayTasks: Active class filters:', filters.filteredClasses.size);
-
-    const result = tasks.filter(task => {
+    return tasks.filter(task => {
       const taskDate = parseLocalDate(task.scheduledDate);
       taskDate.setHours(0, 0, 0, 0);
       const dateMatch = taskDate.getTime() === today.getTime();
 
-      console.log('Task:', task.title, 'scheduled:', taskDate.toISOString(), 'matches today:', dateMatch);
-
       // Apply class filter if any classes are selected
       if (filters.filteredClasses.size > 0) {
         const classMatch = task.classId && filters.filteredClasses.has(task.classId);
-        console.log('  Class filter active - classId:', task.classId, 'matches:', classMatch);
         return dateMatch && classMatch;
       }
 
       return dateMatch;
     });
-
-    console.log('getTodayTasks: Returning', result.length, 'tasks');
-    return result;
   };
 
   const getTodayEvents = () => {
