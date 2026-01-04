@@ -30,10 +30,10 @@ const toSnakeCase = (obj: any) => {
   // Convert fields that need snake_case conversion
   if (obj.dueDate) result.due_date = obj.dueDate;
   if (obj.scheduledDate) result.scheduled_date = obj.scheduledDate;
-  // Handle IDs - set to null if empty string, otherwise use value
-  if (obj.classId !== undefined) result.class_id = obj.classId === '' ? null : obj.classId;
-  if (obj.assignmentId !== undefined) result.assignment_id = obj.assignmentId === '' ? null : obj.assignmentId;
-  if (obj.examId !== undefined) result.exam_id = obj.examId === '' ? null : obj.examId;
+  // Handle IDs - set to null if undefined or empty string, otherwise use value
+  if ('classId' in obj) result.class_id = (obj.classId === '' || obj.classId === undefined) ? null : obj.classId;
+  if ('assignmentId' in obj) result.assignment_id = (obj.assignmentId === '' || obj.assignmentId === undefined) ? null : obj.assignmentId;
+  if ('examId' in obj) result.exam_id = (obj.examId === '' || obj.examId === undefined) ? null : obj.examId;
   if (obj.startTime !== undefined) result.start_time = obj.startTime;
   if (obj.endTime !== undefined) result.end_time = obj.endTime;
   if (obj.daysOfWeek !== undefined) result.days_of_week = JSON.stringify(obj.daysOfWeek);
