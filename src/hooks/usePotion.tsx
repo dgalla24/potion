@@ -402,7 +402,15 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     return tasks.filter(task => {
       const taskDate = parseLocalDate(task.scheduledDate);
       taskDate.setHours(0, 0, 0, 0);
-      return taskDate.getTime() === today.getTime();
+      const dateMatch = taskDate.getTime() === today.getTime();
+
+      // Apply class filter if any classes are selected
+      if (filters.filteredClasses.size > 0) {
+        const classMatch = task.classId && filters.filteredClasses.has(task.classId);
+        return dateMatch && classMatch;
+      }
+
+      return dateMatch;
     });
   };
 
@@ -412,7 +420,15 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     return events.filter(event => {
       const eventDate = parseLocalDate(event.scheduledDate);
       eventDate.setHours(0, 0, 0, 0);
-      return eventDate.getTime() === today.getTime();
+      const dateMatch = eventDate.getTime() === today.getTime();
+
+      // Apply class filter if any classes are selected
+      if (filters.filteredClasses.size > 0) {
+        const classMatch = event.classId && filters.filteredClasses.has(event.classId);
+        return dateMatch && classMatch;
+      }
+
+      return dateMatch;
     });
   };
 
@@ -422,7 +438,15 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     return assignments.filter(assignment => {
       const dueDate = parseLocalDate(assignment.dueDate);
       dueDate.setHours(0, 0, 0, 0);
-      return dueDate.getTime() === today.getTime();
+      const dateMatch = dueDate.getTime() === today.getTime();
+
+      // Apply class filter if any classes are selected
+      if (filters.filteredClasses.size > 0) {
+        const classMatch = assignment.classId && filters.filteredClasses.has(assignment.classId);
+        return dateMatch && classMatch;
+      }
+
+      return dateMatch;
     });
   };
 
