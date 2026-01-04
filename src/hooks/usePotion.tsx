@@ -40,6 +40,7 @@ interface PotionContextType {
   getDailyHoursForDate: (date: Date) => number;
   generateDailyInstances: (startDate: Date, endDate: Date) => Promise<void>;
   deleteDailyGoalInstancesByDate: (date: Date) => Promise<void>;
+  deleteDailyGoalInstance: (id: string) => Promise<void>;
   getClassInstancesForDate: (date: Date) => ClassInstance[];
   getClassHoursForDate: (date: Date) => number;
   updateClassInstance: (id: string, updates: Partial<Omit<ClassInstance, 'id' | 'createdAt'>>) => Promise<void>;
@@ -710,6 +711,16 @@ export function PotionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteDailyGoalInstance = async (id: string) => {
+    const success = await storage.dailyGoalInstances.delete(id);
+
+    if (success) {
+      // Reload instances
+      const updatedInstances = await storage.dailyGoalInstances.getAll();
+      setDailyGoalInstances(updatedInstances);
+    }
+  };
+
   const getClassInstancesForDate = (date: Date): ClassInstance[] => {
     if (!isHydrated) return [];
     const dateStr = date.toISOString().split('T')[0];
@@ -786,6 +797,7 @@ export function PotionProvider({ children }: { children: ReactNode }) {
         getDailyHoursForDate,
         generateDailyInstances,
         deleteDailyGoalInstancesByDate,
+        deleteDailyGoalInstance,
         getClassInstancesForDate,
         getClassHoursForDate,
         updateClassInstance,

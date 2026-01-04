@@ -1,6 +1,6 @@
 'use client';
 
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { usePotion } from '@/hooks/usePotion';
 import { formatDate } from '@/lib/utils';
 
@@ -11,7 +11,7 @@ interface DailyTasksPopoutProps {
 }
 
 export default function DailyTasksPopout({ isOpen, onClose, selectedDate }: DailyTasksPopoutProps) {
-  const { dailyItems, getDailyInstancesForDate, updateDailyGoalInstance } = usePotion();
+  const { dailyItems, getDailyInstancesForDate, updateDailyGoalInstance, deleteDailyGoalInstance } = usePotion();
 
   // Get daily goal instances for the selected date
   const instances = getDailyInstancesForDate(selectedDate);
@@ -24,6 +24,10 @@ export default function DailyTasksPopout({ isOpen, onClose, selectedDate }: Dail
 
   const handleToggleDailyItem = async (instanceId: string, currentStatus: boolean) => {
     await updateDailyGoalInstance(instanceId, { completed: !currentStatus });
+  };
+
+  const handleDeleteDailyItem = async (instanceId: string) => {
+    await deleteDailyGoalInstance(instanceId);
   };
 
   const getHoursColor = (hours: number) => {
@@ -85,7 +89,7 @@ export default function DailyTasksPopout({ isOpen, onClose, selectedDate }: Dail
                     return (
                       <div
                         key={instance.id}
-                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
                       >
                         <button
                           onClick={() => handleToggleDailyItem(instance.id, instance.completed)}
@@ -111,6 +115,13 @@ export default function DailyTasksPopout({ isOpen, onClose, selectedDate }: Dail
                             {dailyItem.hours}h
                           </div>
                         )}
+                        <button
+                          onClick={() => handleDeleteDailyItem(instance.id)}
+                          className="flex-shrink-0 w-5 h-5 rounded-md flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                          title="Delete this daily goal for this day"
+                        >
+                          <X className="w-4 h-4" strokeWidth={2} />
+                        </button>
                       </div>
                     );
                   })

@@ -129,3 +129,12 @@ export interface ClassInstance {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// Track when daily goals and classes were last repopulated
+export interface RepopulationTracking {
+  id: string;
+  entityType: 'daily_goals' | 'classes';
+  lastRepopulatedDate: string; // ISO date string (YYYY-MM-DD)
+  createdAt: Date;
+  updatedAt: Date;
+}

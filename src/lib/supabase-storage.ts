@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Assignment, Task, Class, Exam, Event, DailyItem, DailyGoalInstance, ClassInstance } from '@/types';
+import { Assignment, Task, Class, Exam, Event, DailyItem, DailyGoalInstance, ClassInstance, RepopulationTracking } from '@/types';
 
 // Helper to convert snake_case from DB to camelCase for app
 const toCamelCase = (obj: any) => {
@@ -16,6 +16,8 @@ const toCamelCase = (obj: any) => {
     endTime: obj.end_time,
     daysOfWeek: obj.days_of_week ? JSON.parse(obj.days_of_week) : undefined,
     dailyItemId: obj.daily_item_id,
+    entityType: obj.entity_type,
+    lastRepopulatedDate: obj.last_repopulated_date,
     createdAt: new Date(obj.created_at),
     updatedAt: new Date(obj.updated_at),
   };
@@ -33,6 +35,8 @@ const toSnakeCase = (obj: any) => {
   if (obj.endTime !== undefined) result.end_time = obj.endTime;
   if (obj.daysOfWeek !== undefined) result.days_of_week = JSON.stringify(obj.daysOfWeek);
   if (obj.dailyItemId !== undefined) result.daily_item_id = obj.dailyItemId;
+  if (obj.entityType !== undefined) result.entity_type = obj.entityType;
+  if (obj.lastRepopulatedDate !== undefined) result.last_repopulated_date = obj.lastRepopulatedDate;
 
   // Remove camelCase versions
   delete result.dueDate;
@@ -45,6 +49,8 @@ const toSnakeCase = (obj: any) => {
   delete result.endTime;
   delete result.daysOfWeek;
   delete result.dailyItemId;
+  delete result.entityType;
+  delete result.lastRepopulatedDate;
   delete result.createdAt;
   delete result.updatedAt;
 
@@ -431,12 +437,33 @@ export const supabaseStorage = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get the last repopulated date from tracking
+      const tracking = await supabaseStorage.repopulationTracking.get('daily_goals');
+
+      // Determine the actual start date for generation
+      let actualStartDate = startDate;
+
+      if (tracking && tracking.lastRepopulatedDate) {
+        // Only generate from the day after the last repopulated date
+        const lastRepopulated = new Date(tracking.lastRepopulatedDate);
+        lastRepopulated.setDate(lastRepopulated.getDate() + 1);
+        const nextDay = lastRepopulated.toISOString().split('T')[0];
+
+        // Use the later of nextDay or startDate
+        actualStartDate = nextDay > startDate ? nextDay : startDate;
+
+        // If actualStartDate is after endDate, nothing to generate
+        if (actualStartDate > endDate) {
+          return;
+        }
+      }
+
       // First, get all existing instances in this date range
       const { data: existingInstances } = await supabase
         .from('daily_goal_instances')
         .select('daily_item_id, date')
         .eq('user_id', user.id)
-        .gte('date', startDate)
+        .gte('date', actualStartDate)
         .lte('date', endDate);
 
       // Create a Set of existing instance keys for quick lookup
@@ -447,7 +474,7 @@ export const supabaseStorage = {
       const instances: any[] = [];
 
       // Parse dates as local dates to avoid timezone issues
-      const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+      const [startYear, startMonth, startDay] = actualStartDate.split('-').map(Number);
       const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
       const start = new Date(startYear, startMonth - 1, startDay);
       const end = new Date(endYear, endMonth - 1, endDay);
@@ -481,6 +508,9 @@ export const supabaseStorage = {
           .from('daily_goal_instances')
           .insert(instances);
       }
+
+      // Update the last repopulated date to the endDate
+      await supabaseStorage.repopulationTracking.upsert('daily_goals', endDate);
     },
 
     async deleteByDate(date: string): Promise<boolean> {
@@ -594,12 +624,33 @@ export const supabaseStorage = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get the last repopulated date from tracking
+      const tracking = await supabaseStorage.repopulationTracking.get('classes');
+
+      // Determine the actual start date for generation
+      let actualStartDate = startDate;
+
+      if (tracking && tracking.lastRepopulatedDate) {
+        // Only generate from the day after the last repopulated date
+        const lastRepopulated = new Date(tracking.lastRepopulatedDate);
+        lastRepopulated.setDate(lastRepopulated.getDate() + 1);
+        const nextDay = lastRepopulated.toISOString().split('T')[0];
+
+        // Use the later of nextDay or startDate
+        actualStartDate = nextDay > startDate ? nextDay : startDate;
+
+        // If actualStartDate is after endDate, nothing to generate
+        if (actualStartDate > endDate) {
+          return;
+        }
+      }
+
       // First, get all existing instances in this date range
       const { data: existingInstances } = await supabase
         .from('class_instances')
         .select('class_id, date')
         .eq('user_id', user.id)
-        .gte('date', startDate)
+        .gte('date', actualStartDate)
         .lte('date', endDate);
 
       // Create a Set of existing instance keys for quick lookup
@@ -610,7 +661,7 @@ export const supabaseStorage = {
       const instances: any[] = [];
 
       // Parse dates as local dates to avoid timezone issues
-      const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+      const [startYear, startMonth, startDay] = actualStartDate.split('-').map(Number);
       const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
       const start = new Date(startYear, startMonth - 1, startDay);
       const end = new Date(endYear, endMonth - 1, endDay);
@@ -659,6 +710,9 @@ export const supabaseStorage = {
           .from('class_instances')
           .insert(instances);
       }
+
+      // Update the last repopulated date to the endDate
+      await supabaseStorage.repopulationTracking.upsert('classes', endDate);
     },
 
     async deleteByDate(date: string, classId: string): Promise<boolean> {
@@ -673,6 +727,40 @@ export const supabaseStorage = {
         .eq('date', date);
 
       return !error;
+    },
+  },
+
+  repopulationTracking: {
+    async get(entityType: 'daily_goals' | 'classes'): Promise<RepopulationTracking | null> {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from('repopulation_tracking')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('entity_type', entityType)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data ? toCamelCase(data) : null;
+    },
+
+    async upsert(entityType: 'daily_goals' | 'classes', lastRepopulatedDate: string): Promise<void> {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('repopulation_tracking')
+        .upsert({
+          user_id: user.id,
+          entity_type: entityType,
+          last_repopulated_date: lastRepopulatedDate,
+        }, {
+          onConflict: 'user_id,entity_type',
+        });
+
+      if (error) throw error;
     },
   },
 };
